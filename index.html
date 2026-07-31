@@ -209,7 +209,7 @@ input,select,textarea{font-size:16px;}
    ========================================================= */
 
 const CFG_KEY='rental_config_v1', CACHE_KEY='rental_cache_v1', SESSION_KEY='rental_admin_session_v1', OWNER_KEY='rental_owner_v1';
-const DEFAULT_WORKER_URL=''; // بعد از دیپلوی Worker، آدرسش رو اینجا بین کوتیشن‌ها بذارید — یا از پنل مدیریت وارد کنید
+const DEFAULT_WORKER_URL='https://old-cell-3216.shoes14001410.workers.dev'; // آدرس Worker شما — اگر بعداً عوض شد همین‌جا اصلاحش کنید
 
 function loadConfig(){
   let cfg={}; try{ cfg=JSON.parse(localStorage.getItem(CFG_KEY))||{}; }catch(e){ cfg={}; }
