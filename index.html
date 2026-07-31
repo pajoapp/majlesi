@@ -70,8 +70,8 @@ input,select,textarea{font-size:16px;}
 .search-box input{border:none;outline:none;flex:1;font-family:inherit;font-size:16px;background:transparent;color:var(--ink);}
 .search-box i{color:var(--p-600);}
 
-.filters{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px;}
-@media(max-width:400px){.filters{grid-template-columns:1fr 1fr;} .filters .village-input{grid-column:1/-1;}}
+.filters{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;}
+@media(max-width:520px){.filters{grid-template-columns:1fr 1fr;} .filters .village-input{grid-column:1/-1;}}
 .filters select,.filters input{padding:9px 6px;border-radius:12px;border:1px solid var(--line);background:#fff;font-family:inherit;font-size:16px;color:var(--ink);min-width:0;}
 
 .cta-btn{display:block;background:linear-gradient(90deg,var(--p-700),var(--p-500));color:#fff;border-radius:var(--radius);padding:20px;text-align:center;box-shadow:var(--shadow);margin-bottom:22px;font-weight:800;font-size:16px;}
@@ -209,7 +209,7 @@ input,select,textarea{font-size:16px;}
    ========================================================= */
 
 const CFG_KEY='rental_config_v1', CACHE_KEY='rental_cache_v1', SESSION_KEY='rental_admin_session_v1', OWNER_KEY='rental_owner_v1';
-const DEFAULT_WORKER_URL='https://old-cell-3216.shoes14001410.workers.dev/'; // بعد از دیپلوی Worker، آدرسش رو اینجا بین کوتیشن‌ها بذارید — یا از پنل مدیریت وارد کنید
+const DEFAULT_WORKER_URL=''; // بعد از دیپلوی Worker، آدرسش رو اینجا بین کوتیشن‌ها بذارید — یا از پنل مدیریت وارد کنید
 
 function loadConfig(){
   let cfg={}; try{ cfg=JSON.parse(localStorage.getItem(CFG_KEY))||{}; }catch(e){ cfg={}; }
@@ -235,12 +235,14 @@ function defaultDB(){
     settings:{
       siteName:'اجاره لباس مجلسی', adminPasswordHash:null,
       contact:{phone:'',telegram:'',whatsapp:'',email:'',note:''},
-      licensePolicy:{requireForPosting:false, requireForExtraImages:false, freeImageLimit:5}
+      licensePolicy:{requireForPosting:false, requireForExtraImages:false, freeImageLimit:5},
+      mediaGuide:{text:'',url:''},
+      modeling:{enabled:true, price:200000, note:'عکاسی مدلینگ لباس شما توسط تیم ما — هزینه جداگانه دارد.'}
     },
     ticker:{text:'👗 برای ثبت آگهی اجاره لباس رایگان، از دکمهٔ زیر استفاده کنید — آگهی شما پس از بررسی مدیر منتشر می‌شود'},
     categories:{rentalTypes:['لباس مجلسی','لباس عروس','لباس نامزدی','لباس کودک','سایر']},
     locations:{provinces:[{name:'مرکزی',cities:['اراک','ساوه','خمین','محلات','دلیجان','تفرش','شازند']}]},
-    owners:[], listings:[], adRequests:[]
+    owners:[], listings:[], adRequests:[], stats:{totalViews:0,dailyViews:{}}
   };
 }
 let DB=defaultDB();
@@ -321,10 +323,13 @@ function renderTicker(){
   el.innerHTML=`<span>${esc(text)}</span><span>${esc(text)}</span>`;
 }
 
-let FILTER_STATE={q:'',province:'',city:'',village:'',category:''};
+let FILTER_STATE={q:'',province:'',city:'',village:'',category:'',listingType:''};
 function provinceOptions(sel){ return `<option value="">همه استان‌ها</option>`+DB.locations.provinces.map(p=>`<option value="${esc(p.name)}" ${sel===p.name?'selected':''}>${esc(p.name)}</option>`).join(''); }
 function cityOptions(provinceName, sel){ const p=DB.locations.provinces.find(x=>x.name===provinceName); const cities=p?p.cities:[]; return `<option value="">همه شهرستان‌ها</option>`+cities.map(c=>`<option value="${esc(c)}" ${sel===c?'selected':''}>${esc(c)}</option>`).join(''); }
 function categoryOptions(sel){ return `<option value="">همه انواع</option>`+DB.categories.rentalTypes.map(c=>`<option value="${esc(c)}" ${sel===c?'selected':''}>${esc(c)}</option>`).join(''); }
+function listingTypeOptions(sel){
+  return `<option value="">اجاره و فروش</option><option value="rent" ${sel==='rent'?'selected':''}>فقط اجاره</option><option value="sale" ${sel==='sale'?'selected':''}>فقط فروش</option>`;
+}
 
 function renderHome(){
   const app=document.getElementById('app');
@@ -332,15 +337,17 @@ function renderHome(){
     <div class="search-box"><i class="fa-solid fa-magnifying-glass"></i>
       <input id="searchInput" placeholder="جستجوی لباس..." value="${esc(FILTER_STATE.q)}"></div>
     <div class="filters">
+      <select id="fType">${listingTypeOptions(FILTER_STATE.listingType)}</select>
       <select id="fCategory">${categoryOptions(FILTER_STATE.category)}</select>
       <select id="fProvince">${provinceOptions(FILTER_STATE.province)}</select>
       <select id="fCity">${cityOptions(FILTER_STATE.province, FILTER_STATE.city)}</select>
     </div>
-    <a class="cta-btn" href="#/add"><i class="fa-solid fa-plus"></i>ثبت رایگان آگهی اجاره لباس</a>
+    <a class="cta-btn" href="#/add"><i class="fa-solid fa-plus"></i>ثبت رایگان آگهی اجاره یا فروش لباس</a>
     <div class="section-title"><h2>جدیدترین آگهی‌ها</h2><span class="count">${DB.listings.filter(x=>x.status==='active').length} مورد</span></div>
     <div class="grid" id="recentGrid"></div>
   `;
   document.getElementById('searchInput').addEventListener('input', e=>{ FILTER_STATE.q=e.target.value; renderRecent(); });
+  document.getElementById('fType').addEventListener('change', e=>{ FILTER_STATE.listingType=e.target.value; renderRecent(); });
   document.getElementById('fCategory').addEventListener('change', e=>{ FILTER_STATE.category=e.target.value; renderRecent(); });
   document.getElementById('fProvince').addEventListener('change', e=>{
     FILTER_STATE.province=e.target.value; FILTER_STATE.city='';
@@ -354,6 +361,7 @@ function matchesFilter(item){
   if(item.status!=='active') return false;
   const q=FILTER_STATE.q.trim();
   if(q && !((item.title||'').includes(q) || (item.description||'').includes(q))) return false;
+  if(FILTER_STATE.listingType && (item.listingType||'rent')!==FILTER_STATE.listingType) return false;
   if(FILTER_STATE.category && item.category!==FILTER_STATE.category) return false;
   if(FILTER_STATE.province && item.province!==FILTER_STATE.province) return false;
   if(FILTER_STATE.city && item.city!==FILTER_STATE.city) return false;
@@ -369,11 +377,12 @@ function cardHtml(item){
   const img=item.images && item.images[0];
   const priceLabel = item.price!=null? (fmtPrice(item.price)+' تومان') : 'تماس بگیرید';
   const loc=[item.city,item.province].filter(Boolean).join('، ');
+  const typeLabel = item.listingType==='sale'? 'فروش' : 'اجاره';
   return `
   <a class="card" href="#/item/${item.id}">
     <div class="thumb" style="${img?`background-image:url('${esc(img)}')`:''}">
       ${img?'':'<i class="fa-solid fa-shirt"></i>'}
-      <span class="badge">${esc(item.category||'لباس')}</span>
+      <span class="badge">${typeLabel} · ${esc(item.category||'لباس')}</span>
     </div>
     <div class="body">
       <h3>${esc(item.title)}</h3>
@@ -390,6 +399,7 @@ function renderList(){
     <div class="search-box"><i class="fa-solid fa-magnifying-glass"></i>
       <input id="searchInput2" placeholder="جستجو..." value="${esc(FILTER_STATE.q)}"></div>
     <div class="filters">
+      <select id="fType2">${listingTypeOptions(FILTER_STATE.listingType)}</select>
       <select id="fCategory2">${categoryOptions(FILTER_STATE.category)}</select>
       <select id="fProvince2">${provinceOptions(FILTER_STATE.province)}</select>
       <select id="fCity2">${cityOptions(FILTER_STATE.province, FILTER_STATE.city)}</select>
@@ -399,6 +409,7 @@ function renderList(){
     <div class="grid" id="listGrid"></div>
   `;
   document.getElementById('searchInput2').addEventListener('input', e=>{ FILTER_STATE.q=e.target.value; renderListGrid(); });
+  document.getElementById('fType2').addEventListener('change', e=>{ FILTER_STATE.listingType=e.target.value; renderListGrid(); });
   document.getElementById('fCategory2').addEventListener('change', e=>{ FILTER_STATE.category=e.target.value; renderListGrid(); });
   document.getElementById('fProvince2').addEventListener('change', e=>{
     FILTER_STATE.province=e.target.value; FILTER_STATE.city='';
@@ -451,6 +462,7 @@ function renderDetail(id){
     ${videoHtml}
     <div class="chips">
       <span class="chip ${st[1]}">${st[0]}</span>
+      <span class="chip">${item.listingType==='sale'?'فروش':'اجاره'}</span>
       ${item.category? `<span class="chip">${esc(item.category)}</span>`:''}
     </div>
     ${item.status==='pending'? `<div class="hint-box"><i class="fa-solid fa-clock"></i> این آگهی هنوز تأیید نشده و فقط برای شما قابل مشاهده است. پس از بررسی مدیر (حداکثر تا ۲ ساعت) منتشر می‌شود.</div>`:''}
@@ -471,6 +483,9 @@ function renderDetail(id){
       t.classList.add('active');
     });
   });
+  if(apiReady() && item.status==='active'){
+    apiFetch(`/api/listings/${id}/view`, { method:'POST' }).catch(()=>{});
+  }
 }
 
 function renderForm(editId){
@@ -480,6 +495,8 @@ function renderForm(editId){
   if(editing && !existing){ app.innerHTML=`<div class="empty-state">آگهی یافت نشد</div>`; return; }
 
   const policy = DB.settings.licensePolicy;
+  const mg = DB.settings.mediaGuide || {text:'',url:''};
+  const modeling = DB.settings.modeling || {enabled:false,price:0,note:''};
   const images = existing? (existing.images||[]) : [''];
 
   app.innerHTML=`
@@ -493,6 +510,13 @@ function renderForm(editId){
         <div class="field"><label>شماره تماس</label><input id="ownerPhone" value="${esc((MY_OWNER&&MY_OWNER.phone)||(existing&&existing.ownerPhone)||'')}" placeholder="09xxxxxxxxx" inputmode="tel"></div>
       </div>
 
+      <div class="field">
+        <label>نوع آگهی</label>
+        <div class="price-mode" style="display:flex;gap:10px;">
+          <label style="flex:1;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center;font-size:13px;background:var(--p-50);cursor:pointer;"><input type="radio" name="fListingType" value="rent" ${!existing||existing.listingType!=='sale'?'checked':''} style="width:auto;"> اجاره</label>
+          <label style="flex:1;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center;font-size:13px;background:var(--p-50);cursor:pointer;"><input type="radio" name="fListingType" value="sale" ${existing&&existing.listingType==='sale'?'checked':''} style="width:auto;"> فروش</label>
+        </div>
+      </div>
       <div class="field"><label>عنوان آگهی</label><input id="fTitle" value="${existing?esc(existing.title):''}" placeholder="مثلاً لباس مجلسی سرمه‌ای سایز ۳۸"></div>
       <div class="field"><label>نوع لباس</label>
         <select id="fCat"><option value="">انتخاب کنید</option>${DB.categories.rentalTypes.map(t=>`<option value="${esc(t)}" ${existing&&existing.category===t?'selected':''}>${esc(t)}</option>`).join('')}</select>
@@ -503,7 +527,7 @@ function renderForm(editId){
       </div>
       <div class="row2">
         <div class="field"><label>سایز</label><input id="fSize" value="${existing?esc(existing.size):''}" placeholder="مثلاً 38"></div>
-        <div class="field"><label>قیمت اجاره (تومان)</label><input id="fPrice" type="number" value="${existing?esc(existing.price||''):''}" placeholder="مبلغ"></div>
+        <div class="field"><label id="priceLabel">قیمت (تومان)</label><input id="fPrice" type="number" value="${existing?esc(existing.price||''):''}" placeholder="مبلغ"></div>
       </div>
       <div class="field"><label>توضیحات</label><textarea id="fDesc" placeholder="رنگ، جنس پارچه، شرایط اجاره...">${existing?esc(existing.description):''}</textarea></div>
 
@@ -513,6 +537,18 @@ function renderForm(editId){
         <button class="btn small outline" id="addImgRow" type="button"><i class="fa-solid fa-plus"></i> افزودن عکس دیگر</button>
       </div>
       <div class="field"><label>لینک فیلم (اختیاری)</label><input id="fVid" value="${existing?esc(existing.videoUrl):''}" placeholder="لینک یوتیوب / آپارات / فایل mp4"></div>
+      ${mg.url? `<div class="hint-box"><i class="fa-solid fa-circle-info"></i> ${mg.text? esc(mg.text)+' ' : 'برای گرفتن لینک عکس یا فیلم می‌توانید از این سایت استفاده کنید: '}<a href="${esc(mg.url)}" target="_blank" style="color:var(--p-700);font-weight:700;">${esc(mg.url)}</a></div>` : ''}
+
+      ${modeling.enabled? `
+      <div class="field" style="background:var(--p-50);border:1px solid var(--line);border-radius:12px;padding:12px;">
+        <label style="display:flex;align-items:center;gap:8px;font-weight:700;cursor:pointer;">
+          <input type="checkbox" id="fWantsModeling" ${existing&&existing.wantsModeling?'checked':''} style="width:auto;">
+          می‌خوام لباسم روی مدل عکاسی بشه (مدلینگ)
+        </label>
+        <div id="modelingNote" style="display:${existing&&existing.wantsModeling?'block':'none'};margin-top:8px;font-size:12px;color:var(--ink-soft);line-height:1.9;">
+          ${esc(modeling.note||'')} این گزینه پولی است — هزینه: <b style="color:var(--p-700);">${fmtPrice(modeling.price)} تومان</b>. پس از ثبت آگهی، برای هماهنگی پرداخت با پشتیبانی در تماس باشید.
+        </div>
+      </div>` : ''}
 
       <button class="btn" id="submitForm"><i class="fa-solid fa-check"></i> ثبت آگهی</button>
     </div>
@@ -536,6 +572,12 @@ function renderForm(editId){
   document.getElementById('addImgRow').addEventListener('click', ()=>{ images.push(''); renderImgRows(); });
 
   document.getElementById('fProvinceF').addEventListener('change', e=>{ document.getElementById('fCityF').innerHTML=cityOptions(e.target.value,''); });
+  document.querySelectorAll('input[name=fListingType]').forEach(r=>{
+    r.addEventListener('change', e=>{ document.getElementById('priceLabel').textContent = e.target.value==='sale'? 'قیمت فروش (تومان)' : 'قیمت اجاره (تومان)'; });
+  });
+  if(existing && existing.listingType==='sale') document.getElementById('priceLabel').textContent='قیمت فروش (تومان)';
+  const modelingCb = document.getElementById('fWantsModeling');
+  if(modelingCb) modelingCb.addEventListener('change', e=>{ document.getElementById('modelingNote').style.display = e.target.checked? 'block':'none'; });
 
   document.getElementById('submitForm').addEventListener('click', async ()=>{
     if(!apiReady()){ toast('ابتدا آدرس سرور (Worker) را در تنظیمات مدیریت وارد کنید'); return; }
@@ -547,13 +589,15 @@ function renderForm(editId){
     if(!title||!province){ toast('لطفاً عنوان و استان را وارد کنید'); return; }
 
     const payload = {
-      title, category:document.getElementById('fCat').value,
+      title, listingType: document.querySelector('input[name=fListingType]:checked').value,
+      category:document.getElementById('fCat').value,
       province, city:document.getElementById('fCityF').value,
       size:document.getElementById('fSize').value.trim(),
       price: document.getElementById('fPrice').value? Number(document.getElementById('fPrice').value) : null,
       description: document.getElementById('fDesc').value.trim(),
       images: images.filter(Boolean),
       videoUrl: document.getElementById('fVid').value.trim(),
+      wantsModeling: document.getElementById('fWantsModeling')? document.getElementById('fWantsModeling').checked : false,
     };
 
     const btn=document.getElementById('submitForm');
@@ -678,6 +722,7 @@ function renderAdmin(tab){
 
   const tabs=[
     ['dashboard','آگهی‌ها','fa-list'],
+    ['stats','آمار بازدید','fa-chart-line'],
     ['licenses','لایسنس‌ها','fa-id-card'],
     ['ads','تبلیغات، تماس و پیام‌ها','fa-bullhorn'],
     ['categories','انواع لباس','fa-tags'],
@@ -696,6 +741,7 @@ function renderAdmin(tab){
 
   const body=document.getElementById('adminBody');
   if(tab==='dashboard') return renderAdminDashboard(body);
+  if(tab==='stats') return renderAdminStats(body);
   if(tab==='licenses') return renderAdminLicenses(body);
   if(tab==='ads') return renderAdminAds(body);
   if(tab==='categories') return renderAdminCategories(body);
@@ -708,6 +754,48 @@ function handleAuthError(e){
   return false;
 }
 
+function renderAdminStats(body){
+  const stats = DB.stats || {totalViews:0, dailyViews:{}};
+  const today = new Date().toISOString().slice(0,10);
+  const todayViews = stats.dailyViews[today] || 0;
+
+  const last7 = [];
+  for(let i=6;i>=0;i--){
+    const d = new Date(Date.now() - i*86400000);
+    const key = d.toISOString().slice(0,10);
+    last7.push([key, stats.dailyViews[key]||0]);
+  }
+  const maxDay = Math.max(1, ...last7.map(x=>x[1]));
+
+  const topListings = DB.listings.slice().sort((a,b)=>(b.views||0)-(a.views||0)).slice(0,10);
+
+  body.innerHTML=`
+    <div class="detail-facts" style="grid-template-columns:1fr 1fr;margin-bottom:14px;">
+      <div class="fact"><span>کل بازدید سایت</span><b style="font-size:20px;">${fmtPrice(stats.totalViews)}</b></div>
+      <div class="fact"><span>بازدید امروز</span><b style="font-size:20px;">${fmtPrice(todayViews)}</b></div>
+    </div>
+    <div class="settings-block">
+      <h4><i class="fa-solid fa-chart-column"></i> بازدید ۷ روز اخیر</h4>
+      ${last7.map(([d,v])=>`
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <span style="font-size:11px;color:var(--ink-soft);width:70px;flex-shrink:0;">${fmtDate(new Date(d).getTime())}</span>
+          <div style="flex:1;background:var(--p-100);border-radius:6px;overflow:hidden;height:16px;">
+            <div style="background:var(--p-600);height:100%;width:${(v/maxDay*100).toFixed(0)}%;"></div>
+          </div>
+          <b style="font-size:12px;width:24px;text-align:left;">${v}</b>
+        </div>`).join('')}
+    </div>
+    <div class="settings-block">
+      <h4><i class="fa-solid fa-eye"></i> پربازدیدترین آگهی‌ها</h4>
+      ${topListings.length? topListings.map(it=>`
+        <div class="admin-row">
+          <div class="info"><b>${esc(it.title)}</b><span>${it.listingType==='sale'?'فروش':'اجاره'} · ${esc(it.ownerName||'')}</span></div>
+          <div class="acts"><span class="chip"><i class="fa-solid fa-eye"></i> ${it.views||0}</span></div>
+        </div>`).join('') : `<div class="empty-state"><i class="fa-solid fa-eye"></i>هنوز بازدیدی ثبت نشده</div>`}
+    </div>
+  `;
+}
+
 function renderAdminDashboard(body){
   const items=DB.listings.slice().sort((a,b)=>b.createdAt-a.createdAt);
   const pending=items.filter(it=>it.status==='pending');
@@ -718,7 +806,7 @@ function renderAdminDashboard(body){
     <div class="section-title"><h2><i class="fa-solid fa-clock" style="color:var(--warn)"></i> در انتظار تأیید</h2><span class="count">${pending.length} مورد</span></div>
     ${pending.map(it=>`
       <div class="admin-row" style="border-color:#f0c674;background:#fffaf0;">
-        <div class="info"><b>${esc(it.title)}</b><span>${esc(it.ownerName)} · ${esc(it.ownerPhone)} · ${fmtDate(it.createdAt)}</span></div>
+        <div class="info"><b>${esc(it.title)} ${it.wantsModeling?'<i class="fa-solid fa-camera-retro" style="color:var(--p-600)" title="درخواست مدلینگ"></i>':''}</b><span>${esc(it.ownerName)} · ${esc(it.ownerPhone)} · ${fmtDate(it.createdAt)}</span></div>
         <div class="acts">
           <a class="icon-btn edit" href="#/item/${it.id}"><i class="fa-solid fa-eye"></i></a>
           <button class="icon-btn" style="color:var(--p-700);border-color:var(--p-700);" data-approve="${it.id}"><i class="fa-solid fa-check"></i></button>
@@ -729,7 +817,7 @@ function renderAdminDashboard(body){
     <div class="section-title"><h2>سایر آگهی‌ها</h2><span class="count">${others.length} مورد</span></div>
     ${others.length? others.map(it=>`
       <div class="admin-row">
-        <div class="info"><b>${esc(it.title)} ${it.status==='closed'?'<span style="color:#999">(غیرفعال)</span>':it.status==='rejected'?'<span style="color:#a02020">(رد شده)</span>':''}</b>
+        <div class="info"><b>${esc(it.title)} ${it.status==='closed'?'<span style="color:#999">(غیرفعال)</span>':it.status==='rejected'?'<span style="color:#a02020">(رد شده)</span>':''} ${it.wantsModeling?'<i class="fa-solid fa-camera-retro" style="color:var(--p-600)" title="درخواست مدلینگ"></i>':''}</b>
         <span>${esc(it.ownerName)} · ${esc(it.ownerPhone)} · ${fmtDate(it.createdAt)}</span></div>
         <div class="acts">
           <a class="icon-btn edit" href="#/item/${it.id}"><i class="fa-solid fa-eye"></i></a>
@@ -808,7 +896,7 @@ function renderAdminLicenses(body){
 function renderAdminAds(body){
   const c=(DB.settings&&DB.settings.contact)||{};
   const inbox=(DB.adRequests||[]).slice().reverse();
-  const typeLabel={ad:'درخواست تبلیغات',license:'درخواست لایسنس',support:'پشتیبانی'};
+  const typeLabel={ad:'درخواست تبلیغات',license:'درخواست لایسنس',support:'پشتیبانی',modeling:'درخواست مدلینگ'};
   body.innerHTML=`
     <div class="settings-block">
       <h4><i class="fa-solid fa-bullhorn"></i> متن نوار متحرک</h4>
@@ -957,6 +1045,8 @@ function renderAdminBackup(body){
 
 function renderAdminSettings(body){
   const policy=DB.settings.licensePolicy;
+  const mg=DB.settings.mediaGuide||{text:'',url:''};
+  const modeling=DB.settings.modeling||{enabled:true,price:200000,note:''};
   body.innerHTML=`
     <div class="settings-block">
       <h4><i class="fa-solid fa-server"></i> آدرس سرور (Cloudflare Worker)</h4>
@@ -977,6 +1067,23 @@ function renderAdminSettings(body){
       <button class="btn small" id="savePolicy"><i class="fa-solid fa-check"></i> ذخیره سیاست لایسنس</button>
     </div>
     <div class="settings-block">
+      <h4><i class="fa-solid fa-image"></i> راهنمای آپلود عکس/فیلم</h4>
+      <p style="font-size:12px;color:var(--ink-soft);margin-top:0;">این متن و لینک، کنار فیلدهای عکس/فیلم در فرم ثبت آگهی نمایش داده می‌شود.</p>
+      <div class="field"><label>متن راهنما</label><input id="mgText" value="${esc(mg.text)}" placeholder="مثلاً: عکس‌هاتون رو اینجا آپلود کنید و لینکشو بگیرید:"></div>
+      <div class="field"><label>لینک سایت آپلود</label><input id="mgUrl" value="${esc(mg.url)}" placeholder="https://..."></div>
+      <button class="btn small" id="saveMediaGuide"><i class="fa-solid fa-check"></i> ذخیره راهنما</button>
+    </div>
+    <div class="settings-block">
+      <h4><i class="fa-solid fa-camera-retro"></i> گزینهٔ مدلینگ</h4>
+      <div class="toggle-row">
+        <span>نمایش گزینهٔ «درخواست مدلینگ» در فرم ثبت آگهی</span>
+        <label class="switch"><input type="checkbox" id="modEnabled" ${modeling.enabled?'checked':''}><span class="slider"></span></label>
+      </div>
+      <div class="field" style="margin-top:10px;"><label>هزینه (تومان)</label><input id="modPrice" type="number" value="${modeling.price}"></div>
+      <div class="field"><label>توضیح تکمیلی</label><textarea id="modNote">${esc(modeling.note)}</textarea></div>
+      <button class="btn small" id="saveModeling"><i class="fa-solid fa-check"></i> ذخیره تنظیمات مدلینگ</button>
+    </div>
+    <div class="settings-block">
       <h4><i class="fa-solid fa-key"></i> تغییر رمز مدیریت</h4>
       <div class="field"><label>رمز جدید</label><input id="newPass" type="password" placeholder="رمز عبور جدید"></div>
       <button class="btn small warn" id="savePass"><i class="fa-solid fa-key"></i> تغییر رمز</button>
@@ -987,6 +1094,18 @@ function renderAdminSettings(body){
       <button class="btn small" id="saveSiteName"><i class="fa-solid fa-check"></i> ذخیره</button>
     </div>
   `;
+  document.getElementById('saveMediaGuide').addEventListener('click', async ()=>{
+    try{
+      const mediaGuide={ text:document.getElementById('mgText').value.trim(), url:document.getElementById('mgUrl').value.trim() };
+      await apiFetch('/api/settings', { method:'PUT', admin:true, body:{mediaGuide} }); await refreshData(false); toast('راهنما ذخیره شد');
+    }catch(e){ if(!handleAuthError(e)) toast('خطا: '+e.message); }
+  });
+  document.getElementById('saveModeling').addEventListener('click', async ()=>{
+    try{
+      const modelingBody={ enabled:document.getElementById('modEnabled').checked, price:Number(document.getElementById('modPrice').value)||0, note:document.getElementById('modNote').value.trim() };
+      await apiFetch('/api/settings', { method:'PUT', admin:true, body:{modeling:modelingBody} }); await refreshData(false); toast('تنظیمات مدلینگ ذخیره شد');
+    }catch(e){ if(!handleAuthError(e)) toast('خطا: '+e.message); }
+  });
   document.getElementById('saveCfg').addEventListener('click', async ()=>{
     CONFIG.workerUrl=document.getElementById('cfgWorkerUrl').value.trim().replace(/\/$/,'');
     saveConfig(CONFIG); toast('در حال اتصال...'); await refreshData(true); renderTicker();
@@ -1015,6 +1134,9 @@ async function boot(){
   await refreshData(false);
   renderTicker();
   renderRoute();
+  if(apiReady() && !location.hash.startsWith('#/admin')){
+    apiFetch('/api/stats/view', { method:'POST' }).catch(()=>{});
+  }
   setInterval(async ()=>{
     if(apiReady()){
       await refreshData(false); renderTicker();
