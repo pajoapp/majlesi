@@ -62,7 +62,7 @@ input,select,textarea{font-size:16px;}
 
 .topbar{background:linear-gradient(90deg,var(--p-900),var(--p-700));color:#fff;padding:10px 14px;}
 .ticker-wrap{direction:ltr;overflow:hidden;white-space:nowrap;position:relative;background:rgba(255,255,255,.1);border-radius:20px;padding:6px 0;}
-.ticker-track{display:inline-block;padding-right:100%;animation:ticker 22s linear infinite;font-size:14px;font-weight:600;}
+.ticker-track{display:inline-block;padding-right:100%;animation-name:ticker;animation-timing-function:linear;animation-iteration-count:infinite;font-size:14px;font-weight:600;}
 .ticker-track span{margin-inline-end:60px;}
 @keyframes ticker{0%{transform:translateX(0);}100%{transform:translateX(-100%);}}
 
@@ -190,10 +190,16 @@ input,select,textarea{font-size:16px;}
 <div class="topbar"><div class="ticker-wrap"><div class="ticker-track" id="tickerTrack"></div></div></div>
 
 <div class="brandbar">
-  <div class="brand"><img src="logo.png" alt="روا" style="width:32px;height:32px;object-fit:cover;border-radius:8px;"> روا</div>
+  <div class="brand" id="brandTapZone" style="cursor:default;">
+    <img src="logo.png" alt="روا" style="width:32px;height:32px;object-fit:cover;border-radius:8px;"> روا
+  </div>
   <div style="display:flex;gap:8px;align-items:center;">
     <span class="conn-status" id="connStatus"><span class="dot" id="connDot"></span><span id="connText">در حال اتصال</span></span>
-    <a href="#/admin" class="admin-link"><i class="fa-solid fa-lock"></i> مدیریت</a>
+    <button id="bellBtn" style="display:none;position:relative;background:#fff;border:1px solid var(--line);border-radius:20px;width:34px;height:34px;align-items:center;justify-content:center;color:var(--p-700);">
+      <i class="fa-solid fa-bell"></i>
+      <span id="bellBadge" style="display:none;position:absolute;top:-4px;left:-4px;background:var(--danger);color:#fff;font-size:10px;min-width:16px;height:16px;border-radius:10px;align-items:center;justify-content:center;padding:0 3px;"></span>
+    </button>
+    <a href="#/admin" class="admin-link" id="adminLinkBtn" style="display:none;"><i class="fa-solid fa-lock"></i> مدیریت</a>
   </div>
 </div>
 
@@ -235,6 +241,31 @@ function isAdminLoggedIn(){ return !!(SESSION && SESSION.token && SESSION.expire
 function loadOwner(){ try{ return JSON.parse(localStorage.getItem(OWNER_KEY))||null; }catch(e){ return null; } }
 function saveOwner(o){ localStorage.setItem(OWNER_KEY, JSON.stringify(o)); }
 let MY_OWNER = loadOwner(); // {name, phone}
+
+const LIKES_KEY='rental_likes_v1';
+function loadLikedSet(){ try{ return new Set(JSON.parse(localStorage.getItem(LIKES_KEY))||[]); }catch(e){ return new Set(); } }
+function saveLikedSet(s){ localStorage.setItem(LIKES_KEY, JSON.stringify([...s])); }
+let LIKED_IDS = loadLikedSet();
+
+async function handleLikeClick(id, btnEl){
+  if(!apiReady()){ toast('ارتباط با سرور برقرار نیست'); return; }
+  const liked = LIKED_IDS.has(id);
+  const action = liked? 'unlike' : 'like';
+  const icon = btnEl.querySelector('i');
+  btnEl.style.color = liked? '#999' : 'var(--danger)';
+  if(icon) icon.className = liked? 'fa-regular fa-heart' : 'fa-solid fa-heart';
+  try{
+    const res = await apiFetch(`/api/listings/${id}/like`, { method:'POST', body:{action} });
+    if(liked) LIKED_IDS.delete(id); else LIKED_IDS.add(id);
+    saveLikedSet(LIKED_IDS);
+    const it=findItem(id); if(it){ it.likes=res.likes; saveLocalCache(); }
+    document.querySelectorAll(`[data-likecount="${id}"]`).forEach(el=>el.textContent=res.likes);
+  }catch(e){
+    btnEl.style.color = liked? 'var(--danger)':'#999';
+    if(icon) icon.className = liked? 'fa-solid fa-heart' : 'fa-regular fa-heart';
+    toast('خطا در ثبت پسند');
+  }
+}
 
 function defaultDB(){
   return {
@@ -324,10 +355,47 @@ function renderRoute(){
   if(parts[0]==='admin'){ setActiveNav('admin'); return renderAdmin(parts[1]||'dashboard'); }
   setActiveNav('home'); renderHome();
 }
+/* ---------- دسترسی مخفی مدیر (۵ ضربه پیاپی) و زنگ اعلان ---------- */
+let __tapTimes=[];
+function revealAdminLink(){
+  const btn=document.getElementById('adminLinkBtn');
+  if(btn) btn.style.display='flex';
+}
+function setupSecretTap(){
+  const zone=document.getElementById('brandTapZone');
+  if(!zone) return;
+  zone.addEventListener('click', ()=>{
+    const now=Date.now();
+    __tapTimes.push(now);
+    __tapTimes=__tapTimes.filter(t=>now-t<3000);
+    if(__tapTimes.length>=5){
+      __tapTimes=[];
+      revealAdminLink();
+      toast('دسترسی مدیریت باز شد');
+    }
+  });
+}
+function updateBell(){
+  const bell=document.getElementById('bellBtn');
+  const badge=document.getElementById('bellBadge');
+  if(!bell) return;
+  if(!isAdminLoggedIn()){ bell.style.display='none'; return; }
+  bell.style.display='flex';
+  const pendingCount = DB.listings.filter(x=>x.status==='pending').length;
+  const msgCount = (DB.adRequests||[]).length;
+  const total = pendingCount + msgCount;
+  if(total>0){ badge.style.display='flex'; badge.textContent = total>99? '99+' : total; }
+  else { badge.style.display='none'; }
+}
+document.getElementById('bellBtn') && document.getElementById('bellBtn').addEventListener('click', ()=>{ go('#/admin/dashboard'); renderRoute(); });
+
 function renderTicker(){
   const el=document.getElementById('tickerTrack');
   const text=DB.ticker && DB.ticker.text? DB.ticker.text : '';
   el.innerHTML=`<span>${esc(text)}</span><span>${esc(text)}</span>`;
+  // سرعت متناسب با طول متن — کندتر از قبل تا راحت خونده بشه
+  const duration = Math.max(18, text.length * 0.45);
+  el.style.animationDuration = duration + 's';
 }
 
 let FILTER_STATE={q:'',province:'',city:'',village:'',category:'',listingType:''};
@@ -386,6 +454,7 @@ function cardHtml(item){
   const priceLabel = item.price!=null? (fmtPrice(item.price)+' تومان') : 'تماس بگیرید';
   const loc=[item.city,item.province].filter(Boolean).join('، ');
   const typeLabel = item.listingType==='sale'? 'فروش' : 'اجاره';
+  const isLiked = LIKED_IDS.has(item.id);
   return `
   <a class="card" href="#/item/${item.id}">
     <div class="thumb" style="${img?`background-image:url('${esc(img)}')`:''}">
@@ -393,6 +462,9 @@ function cardHtml(item){
       <span class="badge">${typeLabel} · ${esc(item.category||'لباس')}</span>
       ${item.featured? `<span class="badge" style="top:auto;bottom:6px;background:#c9971f;">⭐ ویژه</span>` : ''}
       ${hasDiscount? `<span class="badge" style="top:auto;bottom:6px;${item.featured?'left:6px;right:auto;':''}background:var(--danger);">تخفیف</span>` : ''}
+      <button onclick="event.preventDefault();event.stopPropagation();handleLikeClick('${item.id}',this);" style="position:absolute;top:6px;left:6px;width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.92);border:none;display:flex;align-items:center;justify-content:center;color:${isLiked?'var(--danger)':'#999'};">
+        <i class="fa-${isLiked?'solid':'regular'} fa-heart"></i>
+      </button>
     </div>
     <div class="body">
       <h3>${esc(item.title)}</h3>
@@ -474,6 +546,9 @@ function renderDetail(id){
       <span class="chip ${st[1]}">${st[0]}</span>
       <span class="chip">${item.listingType==='sale'?'فروش':'اجاره'}</span>
       ${item.category? `<span class="chip">${esc(item.category)}</span>`:''}
+      <button onclick="handleLikeClick('${item.id}',this);" class="chip" style="border:none;cursor:pointer;color:${LIKED_IDS.has(item.id)?'var(--danger)':'var(--p-700)'};display:inline-flex;align-items:center;gap:6px;">
+        <i class="fa-${LIKED_IDS.has(item.id)?'solid':'regular'} fa-heart"></i> <span data-likecount="${item.id}">${item.likes||0}</span>
+      </button>
     </div>
     ${item.status==='pending'? `<div class="hint-box"><i class="fa-solid fa-clock"></i> این آگهی هنوز تأیید نشده و فقط برای شما قابل مشاهده است. پس از بررسی مدیر (حداکثر تا ۲ ساعت) منتشر می‌شود.</div>`:''}
     ${item.status==='rejected'? `<div class="hint-box" style="background:#fde3e3;color:#a02020;"><i class="fa-solid fa-circle-exclamation"></i> این آگهی رد شده. ${item.rejectionReason? 'دلیل: '+esc(item.rejectionReason) : ''}</div>`:''}
@@ -518,73 +593,131 @@ function renderForm(editId){
       <h2><i class="fa-solid fa-shirt"></i> ${editing?'ویرایش':'ثبت'} آگهی اجاره لباس</h2>
       ${!apiReady() ? `<div class="hint-box">سرور هنوز پیکربندی نشده — آدرس Worker را از پنل مدیریت ← تنظیمات وارد کنید.</div>` : ''}
 
-      <div class="row2">
-        <div class="field"><label>نام شما</label><input id="ownerName" value="${esc((MY_OWNER&&MY_OWNER.name)||(existing&&existing.ownerName)||'')}" placeholder="نام و نام خانوادگی"></div>
-        <div class="field"><label>شماره تماس</label><input id="ownerPhone" value="${esc((MY_OWNER&&MY_OWNER.phone)||(existing&&existing.ownerPhone)||'')}" placeholder="09xxxxxxxxx" inputmode="tel"></div>
+      <div id="formStep1">
+        <div class="hint-box"><i class="fa-solid fa-image"></i> مرحلهٔ ۱ از ۲ — عکس‌های لباس رو اضافه کنید</div>
+        <div class="field">
+          <label>عکس‌ها — ${policy.freeImageLimit} تای اول رایگان${policy.requireForExtraImages?'، بیشتر از اون نیاز به لایسنس داره':''}</label>
+          ${mg.url? `<div class="hint-box"><i class="fa-solid fa-circle-info"></i> ${mg.text? esc(mg.text)+' ' : 'برای گرفتن لینک عکس می‌توانید از این سایت استفاده کنید: '}<a href="${esc(mg.url)}" target="_blank" style="color:var(--p-700);font-weight:700;">${esc(mg.url)}</a></div>` : ''}
+          <input type="file" id="imgFileInput" accept="image/*" multiple style="display:none">
+          <button class="btn" id="uploadImgBtn" type="button" style="margin-bottom:10px;"><i class="fa-solid fa-upload"></i> آپلود عکس از گوشی</button>
+          <div id="imgRows"></div>
+          <button class="btn small outline" id="addImgRow" type="button"><i class="fa-solid fa-plus"></i> افزودن لینک عکس دستی</button>
+        </div>
+        <button class="btn" id="toStep2Btn" type="button" style="margin-top:14px;"><i class="fa-solid fa-arrow-left"></i> بعدی: مشخصات لباس</button>
       </div>
 
-      <div class="field">
-        <label>نوع آگهی</label>
-        <div class="price-mode" style="display:flex;gap:10px;">
-          <label style="flex:1;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center;font-size:13px;background:var(--p-50);cursor:pointer;"><input type="radio" name="fListingType" value="rent" ${!existing||existing.listingType!=='sale'?'checked':''} style="width:auto;"> اجاره</label>
-          <label style="flex:1;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center;font-size:13px;background:var(--p-50);cursor:pointer;"><input type="radio" name="fListingType" value="sale" ${existing&&existing.listingType==='sale'?'checked':''} style="width:auto;"> فروش</label>
+      <div id="formStep2" style="display:none;">
+        <button class="btn small outline" id="backToStep1Btn" type="button" style="margin-bottom:14px;"><i class="fa-solid fa-arrow-right"></i> بازگشت به عکس‌ها</button>
+
+        <div class="row2">
+          <div class="field"><label>نام شما</label><input id="ownerName" value="${esc((MY_OWNER&&MY_OWNER.name)||(existing&&existing.ownerName)||'')}" placeholder="نام و نام خانوادگی"></div>
+          <div class="field"><label>شماره تماس</label><input id="ownerPhone" value="${esc((MY_OWNER&&MY_OWNER.phone)||(existing&&existing.ownerPhone)||'')}" placeholder="09xxxxxxxxx" inputmode="tel"></div>
         </div>
-      </div>
-      <div class="field"><label>عنوان آگهی</label><input id="fTitle" value="${existing?esc(existing.title):''}" placeholder="مثلاً لباس مجلسی سرمه‌ای سایز ۳۸"></div>
-      <div class="field"><label>نوع لباس</label>
-        <select id="fCat"><option value="">انتخاب کنید</option>${DB.categories.rentalTypes.map(t=>`<option value="${esc(t)}" ${existing&&existing.category===t?'selected':''}>${esc(t)}</option>`).join('')}</select>
-      </div>
-      <div class="row2">
-        <div class="field"><label>استان</label><select id="fProvinceF"><option value="">انتخاب کنید</option>${provinceOptions(existing?existing.province:'مرکزی')}</select></div>
-        <div class="field"><label>شهرستان</label><select id="fCityF">${cityOptions(existing?existing.province:'مرکزی', existing?existing.city:'اراک')}</select></div>
-      </div>
-      <div class="row2">
-        <div class="field"><label>سایز</label><input id="fSize" value="${existing?esc(existing.size):''}" placeholder="مثلاً 38"></div>
-        <div class="field"><label id="priceLabel">قیمت (تومان)</label><input id="fPrice" type="number" value="${existing?esc(existing.price||''):''}" placeholder="مبلغ"></div>
+
         <div class="field">
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-            <input type="checkbox" id="fHasDiscount" ${existing&&existing.originalPrice?'checked':''} style="width:auto;"> این آگهی تخفیف داره
-          </label>
-          <div id="discountRow" style="display:${existing&&existing.originalPrice?'block':'none'};margin-top:8px;">
-            <label>قیمت قبل از تخفیف (تومان)</label>
-            <input id="fOriginalPrice" type="number" value="${existing?esc(existing.originalPrice||''):''}" placeholder="مبلغ قبل از تخفیف">
+          <label>نوع آگهی</label>
+          <div class="price-mode" style="display:flex;gap:10px;">
+            <label style="flex:1;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center;font-size:13px;background:var(--p-50);cursor:pointer;"><input type="radio" name="fListingType" value="rent" ${!existing||existing.listingType!=='sale'?'checked':''} style="width:auto;"> اجاره</label>
+            <label style="flex:1;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center;font-size:13px;background:var(--p-50);cursor:pointer;"><input type="radio" name="fListingType" value="sale" ${existing&&existing.listingType==='sale'?'checked':''} style="width:auto;"> فروش</label>
           </div>
         </div>
-      </div>
-      <div class="field"><label>توضیحات</label><textarea id="fDesc" placeholder="رنگ، جنس پارچه، شرایط اجاره...">${existing?esc(existing.description):''}</textarea></div>
-
-      <div class="field">
-        <label>عکس‌ها (لینک) — ${policy.freeImageLimit} تای اول رایگان${policy.requireForExtraImages?'، بیشتر از اون نیاز به لایسنس داره':''}</label>
-        ${mg.url? `<div class="hint-box"><i class="fa-solid fa-circle-info"></i> ${mg.text? esc(mg.text)+' ' : 'برای گرفتن لینک عکس می‌توانید از این سایت استفاده کنید: '}<a href="${esc(mg.url)}" target="_blank" style="color:var(--p-700);font-weight:700;">${esc(mg.url)}</a></div>` : ''}
-        <div id="imgRows"></div>
-        <button class="btn small outline" id="addImgRow" type="button"><i class="fa-solid fa-plus"></i> افزودن عکس دیگر</button>
-      </div>
-      <div class="field"><label>لینک فیلم (اختیاری)</label><input id="fVid" value="${existing?esc(existing.videoUrl):''}" placeholder="لینک یوتیوب / آپارات / فایل mp4"></div>
-
-      ${modeling.enabled? `
-      <div class="field" style="background:var(--p-50);border:1px solid var(--line);border-radius:12px;padding:12px;">
-        <label style="display:flex;align-items:center;gap:8px;font-weight:700;cursor:pointer;">
-          <input type="checkbox" id="fWantsModeling" ${existing&&existing.wantsModeling?'checked':''} style="width:auto;">
-          می‌خوام لباسم روی مدل عکاسی بشه (مدلینگ)
-        </label>
-        <div id="modelingNote" style="display:${existing&&existing.wantsModeling?'block':'none'};margin-top:8px;font-size:12px;color:var(--ink-soft);line-height:1.9;">
-          ${esc(modeling.note||'')} این گزینه پولی است — هزینه: <b style="color:var(--p-700);">${fmtPrice(modeling.price)} تومان</b>. پس از ثبت آگهی، برای هماهنگی پرداخت با پشتیبانی در تماس باشید.
+        <div class="field"><label>عنوان آگهی</label><input id="fTitle" value="${existing?esc(existing.title):''}" placeholder="مثلاً لباس مجلسی سرمه‌ای سایز ۳۸"></div>
+        <div class="field"><label>نوع لباس</label>
+          <select id="fCat"><option value="">انتخاب کنید</option>${DB.categories.rentalTypes.map(t=>`<option value="${esc(t)}" ${existing&&existing.category===t?'selected':''}>${esc(t)}</option>`).join('')}</select>
         </div>
-      </div>` : ''}
+        <div class="row2">
+          <div class="field"><label>استان</label><select id="fProvinceF"><option value="">انتخاب کنید</option>${provinceOptions(existing?existing.province:'مرکزی')}</select></div>
+          <div class="field"><label>شهرستان</label><select id="fCityF">${cityOptions(existing?existing.province:'مرکزی', existing?existing.city:'اراک')}</select></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>سایز</label><input id="fSize" value="${existing?esc(existing.size):''}" placeholder="مثلاً 38"></div>
+          <div class="field"><label id="priceLabel">قیمت (تومان)</label><input id="fPrice" type="number" value="${existing?esc(existing.price||''):''}" placeholder="مبلغ"></div>
+          <div class="field">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+              <input type="checkbox" id="fHasDiscount" ${existing&&existing.originalPrice?'checked':''} style="width:auto;"> این آگهی تخفیف داره
+            </label>
+            <div id="discountRow" style="display:${existing&&existing.originalPrice?'block':'none'};margin-top:8px;">
+              <label>قیمت قبل از تخفیف (تومان)</label>
+              <input id="fOriginalPrice" type="number" value="${existing?esc(existing.originalPrice||''):''}" placeholder="مبلغ قبل از تخفیف">
+            </div>
+          </div>
+        </div>
+        <div class="field"><label>توضیحات</label><textarea id="fDesc" placeholder="رنگ، جنس پارچه، شرایط اجاره...">${existing?esc(existing.description):''}</textarea></div>
+        <div class="field"><label>لینک فیلم (اختیاری)</label><input id="fVid" value="${existing?esc(existing.videoUrl):''}" placeholder="لینک یوتیوب / آپارات / فایل mp4"></div>
 
-      <button class="btn" id="submitForm"><i class="fa-solid fa-check"></i> ثبت آگهی</button>
+        ${modeling.enabled? `
+        <div class="field" style="background:var(--p-50);border:1px solid var(--line);border-radius:12px;padding:12px;">
+          <label style="display:flex;align-items:center;gap:8px;font-weight:700;cursor:pointer;">
+            <input type="checkbox" id="fWantsModeling" ${existing&&existing.wantsModeling?'checked':''} style="width:auto;">
+            می‌خوام لباسم روی مدل عکاسی بشه (مدلینگ)
+          </label>
+          <div id="modelingNote" style="display:${existing&&existing.wantsModeling?'block':'none'};margin-top:8px;font-size:12px;color:var(--ink-soft);line-height:1.9;">
+            ${esc(modeling.note||'')} این گزینه پولی است — هزینه: <b style="color:var(--p-700);">${fmtPrice(modeling.price)} تومان</b>. پس از ثبت آگهی، برای هماهنگی پرداخت با پشتیبانی در تماس باشید.
+          </div>
+        </div>` : ''}
+
+        <button class="btn" id="submitForm"><i class="fa-solid fa-check"></i> ثبت آگهی</button>
+      </div>
     </div>
   `;
+
+  document.getElementById('toStep2Btn').addEventListener('click', ()=>{
+    if(!images.filter(Boolean).length){
+      if(!confirm('هنوز عکسی اضافه نکردید. بدون عکس ادامه بدم؟')) return;
+    }
+    document.getElementById('formStep1').style.display='none';
+    document.getElementById('formStep2').style.display='block';
+    window.scrollTo(0,0);
+  });
+  document.getElementById('backToStep1Btn').addEventListener('click', ()=>{
+    document.getElementById('formStep2').style.display='none';
+    document.getElementById('formStep1').style.display='block';
+    window.scrollTo(0,0);
+  });
+
+  async function uploadToCatbox(file){
+    const fd=new FormData();
+    fd.append('reqtype','fileupload');
+    fd.append('fileToUpload', file);
+    const res=await fetch('https://catbox.moe/user/api.php', { method:'POST', body:fd });
+    const text=(await res.text()).trim();
+    if(!res.ok || !text.startsWith('http')) throw new Error(text||'آپلود ناموفق بود');
+    return text;
+  }
+  const uploadBtn=document.getElementById('uploadImgBtn');
+  const fileInput=document.getElementById('imgFileInput');
+  uploadBtn.addEventListener('click', ()=>fileInput.click());
+  fileInput.addEventListener('change', async ()=>{
+    const files=[...fileInput.files];
+    if(!files.length) return;
+    uploadBtn.disabled=true;
+    for(const file of files){
+      uploadBtn.innerHTML=`<span class="spinner"></span> در حال آپلود ${file.name}...`;
+      try{
+        const url=await uploadToCatbox(file);
+        if(images.length===1 && !images[0]) images[0]=url; else images.push(url);
+        renderImgRows();
+      }catch(e){ toast('آپلود ناموفق بود: '+e.message); }
+    }
+    uploadBtn.disabled=false;
+    uploadBtn.innerHTML='<i class="fa-solid fa-upload"></i> آپلود عکس از گوشی';
+    fileInput.value='';
+  });
 
   const imgRows=document.getElementById('imgRows');
   function renderImgRows(){
     imgRows.innerHTML = images.map((v,i)=>`
-      <div class="img-row">
+      <div class="img-row" style="align-items:center;">
+        <img src="${esc(v)}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;background:var(--p-100);flex-shrink:0;${v?'':'display:none;'}" onerror="this.style.display='none'" onload="this.style.display='block'">
         <input data-imgidx="${i}" value="${esc(v)}" placeholder="لینک عکس شماره ${i+1}">
         <button type="button" data-rmimg="${i}"><i class="fa-solid fa-xmark"></i></button>
       </div>`).join('');
     imgRows.querySelectorAll('[data-imgidx]').forEach(inp=>{
-      inp.addEventListener('input', e=>{ images[+e.target.dataset.imgidx]=e.target.value; });
+      inp.addEventListener('input', e=>{
+        images[+e.target.dataset.imgidx]=e.target.value;
+        const img=e.target.previousElementSibling;
+        if(img&&img.tagName==='IMG'){ img.src=e.target.value; img.style.display=e.target.value?'block':'none'; }
+      });
     });
     imgRows.querySelectorAll('[data-rmimg]').forEach(btn=>{
       btn.addEventListener('click', ()=>{ images.splice(+btn.dataset.rmimg,1); if(!images.length) images.push(''); renderImgRows(); });
@@ -736,6 +869,7 @@ function renderAdmin(tab){
       try{
         const res=await apiFetch('/api/admin/login', { method:'POST', body:{ password: pass } });
         SESSION={ token:res.token, expiresAt:res.expiresAt }; saveSession(SESSION);
+        revealAdminLink(); updateBell();
         go('#/admin/dashboard'); renderAdmin('dashboard');
       }catch(e){
         if(e.status===401) toast('رمز عبور اشتباه است');
@@ -763,7 +897,7 @@ function renderAdmin(tab){
     <div class="admin-tabs">${tabs.map(t=>`<button data-tab="${t[0]}" class="${tab===t[0]?'active':''}"><i class="fa-solid ${t[2]}"></i> ${t[1]}</button>`).join('')}</div>
     <div id="adminBody"></div>
   `;
-  document.getElementById('logoutBtn').addEventListener('click', ()=>{ SESSION=null; clearSession(); go('#/admin'); });
+  document.getElementById('logoutBtn').addEventListener('click', ()=>{ SESSION=null; clearSession(); updateBell(); go('#/admin'); });
   app.querySelectorAll('.admin-tabs button').forEach(b=>{ b.addEventListener('click', ()=>{ go('#/admin/'+b.dataset.tab); renderAdmin(b.dataset.tab); }); });
 
   const body=document.getElementById('adminBody');
@@ -1169,12 +1303,15 @@ async function boot(){
   await refreshData(false);
   renderTicker();
   renderRoute();
+  setupSecretTap();
+  if(isAdminLoggedIn()) revealAdminLink();
+  updateBell();
   if(apiReady() && !location.hash.startsWith('#/admin')){
     apiFetch('/api/stats/view', { method:'POST' }).catch(()=>{});
   }
   setInterval(async ()=>{
     if(apiReady()){
-      await refreshData(false); renderTicker();
+      await refreshData(false); renderTicker(); updateBell();
       if(!location.hash.startsWith('#/add') && !location.hash.startsWith('#/edit')) renderRoute();
     }
   }, 45000);
