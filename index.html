@@ -3,30 +3,37 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
-<title>اجاره لباس مجلسی اراک | لباس عروس، نامزدی و مجلسی</title>
+<title>روا | اجاره و فروش لباس مجلسی در اراک</title>
 
-<meta name="description" content="اجاره لباس مجلسی، عروس و نامزدی در اراک. مشاهده و ثبت رایگان آگهی اجاره لباس با عکس، قیمت و مشخصات کامل.">
-<meta name="keywords" content="اجاره لباس مجلسی اراک, اجاره لباس عروس اراک, اجاره لباس نامزدی, مزون لباس مجلسی اراک">
+<meta name="description" content="روا؛ پلتفرم اجاره و فروش لباس مجلسی، عروس و نامزدی در اراک. مشاهده و ثبت رایگان آگهی با عکس، قیمت و مشخصات کامل.">
+<meta name="keywords" content="روا, اجاره لباس مجلسی اراک, فروش لباس مجلسی اراک, اجاره لباس عروس اراک, اجاره لباس نامزدی, مزون لباس مجلسی اراک">
 <meta name="robots" content="index, follow">
 <meta name="theme-color" content="#7a1f5c">
 <link rel="canonical" href="https://example.com/">
 
 <meta property="og:type" content="website">
 <meta property="og:locale" content="fa_IR">
-<meta property="og:site_name" content="اجاره لباس مجلسی اراک">
-<meta property="og:title" content="اجاره لباس مجلسی اراک">
-<meta property="og:description" content="مشاهده و ثبت رایگان آگهی اجاره لباس مجلسی، عروس و نامزدی در اراک.">
+<meta property="og:site_name" content="روا">
+<meta property="og:title" content="روا | اجاره و فروش لباس مجلسی در اراک">
+<meta property="og:description" content="مشاهده و ثبت رایگان آگهی اجاره و فروش لباس مجلسی، عروس و نامزدی در اراک.">
 <meta property="og:url" content="https://example.com/">
+<meta property="og:image" content="https://example.com/logo.png">
+
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="روا | اجاره و فروش لباس مجلسی در اراک">
+<meta name="twitter:image" content="https://example.com/logo.png">
 
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👗</text></svg>">
+<link rel="apple-touch-icon" href="logo.png">
+<link rel="icon" href="logo.png">
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "WebSite",
-  "name": "اجاره لباس مجلسی اراک",
+  "name": "روا",
+  "alternateName": "اجاره و فروش لباس مجلسی روا",
   "url": "https://example.com/",
   "inLanguage": "fa-IR"
 }
@@ -183,7 +190,7 @@ input,select,textarea{font-size:16px;}
 <div class="topbar"><div class="ticker-wrap"><div class="ticker-track" id="tickerTrack"></div></div></div>
 
 <div class="brandbar">
-  <div class="brand"><i class="fa-solid fa-shirt"></i> اجاره لباس مجلسی</div>
+  <div class="brand"><img src="logo.png" alt="روا" style="width:32px;height:32px;object-fit:cover;border-radius:8px;"> روا</div>
   <div style="display:flex;gap:8px;align-items:center;">
     <span class="conn-status" id="connStatus"><span class="dot" id="connDot"></span><span id="connText">در حال اتصال</span></span>
     <a href="#/admin" class="admin-link"><i class="fa-solid fa-lock"></i> مدیریت</a>
@@ -204,7 +211,7 @@ input,select,textarea{font-size:16px;}
 
 <script>
 /* =========================================================
-   اجاره لباس مجلسی — فرانت‌اند تک‌فایل
+   روا — فرانت‌اند تک‌فایل
    بک‌اند: Cloudflare Worker + KV
    ========================================================= */
 
@@ -233,13 +240,13 @@ function defaultDB(){
   return {
     meta:{version:1,lastUpdated:Date.now()},
     settings:{
-      siteName:'اجاره لباس مجلسی', adminPasswordHash:null,
+      siteName:'روا | اجاره و فروش لباس مجلسی', adminPasswordHash:null,
       contact:{phone:'',telegram:'',whatsapp:'',email:'',note:''},
       licensePolicy:{requireForPosting:false, requireForExtraImages:false, freeImageLimit:5},
       mediaGuide:{text:'',url:''},
       modeling:{enabled:true, price:200000, note:'عکاسی مدلینگ لباس شما توسط تیم ما — هزینه جداگانه دارد.'}
     },
-    ticker:{text:'👗 برای ثبت آگهی اجاره لباس رایگان، از دکمهٔ زیر استفاده کنید — آگهی شما پس از بررسی مدیر منتشر می‌شود'},
+    ticker:{text:'👗 روا | برای ثبت آگهی رایگان اجاره یا فروش لباس مجلسی، از دکمهٔ زیر استفاده کنید — آگهی شما پس از بررسی مدیر منتشر می‌شود'},
     categories:{rentalTypes:['لباس مجلسی','لباس عروس','لباس نامزدی','لباس کودک','سایر']},
     locations:{provinces:[{name:'مرکزی',cities:['اراک','ساوه','خمین','محلات','دلیجان','تفرش','شازند']}]},
     owners:[], listings:[], adRequests:[], stats:{totalViews:0,dailyViews:{}}
@@ -375,6 +382,7 @@ function renderRecent(){
 }
 function cardHtml(item){
   const img=item.images && item.images[0];
+  const hasDiscount = item.originalPrice!=null && item.price!=null && item.originalPrice>item.price;
   const priceLabel = item.price!=null? (fmtPrice(item.price)+' تومان') : 'تماس بگیرید';
   const loc=[item.city,item.province].filter(Boolean).join('، ');
   const typeLabel = item.listingType==='sale'? 'فروش' : 'اجاره';
@@ -384,11 +392,12 @@ function cardHtml(item){
       ${img?'':'<i class="fa-solid fa-shirt"></i>'}
       <span class="badge">${typeLabel} · ${esc(item.category||'لباس')}</span>
       ${item.featured? `<span class="badge" style="top:auto;bottom:6px;background:#c9971f;">⭐ ویژه</span>` : ''}
+      ${hasDiscount? `<span class="badge" style="top:auto;bottom:6px;${item.featured?'left:6px;right:auto;':''}background:var(--danger);">تخفیف</span>` : ''}
     </div>
     <div class="body">
       <h3>${esc(item.title)}</h3>
       <div class="meta"><i class="fa-solid fa-location-dot"></i>${esc(loc||'—')}</div>
-      <div class="price">${priceLabel}</div>
+      <div class="price">${hasDiscount? `<span style="text-decoration:line-through;color:var(--ink-soft);font-weight:400;font-size:11px;">${fmtPrice(item.originalPrice)}</span> ${priceLabel}` : priceLabel}</div>
     </div>
   </a>`;
 }
@@ -469,7 +478,10 @@ function renderDetail(id){
     ${item.status==='pending'? `<div class="hint-box"><i class="fa-solid fa-clock"></i> این آگهی هنوز تأیید نشده و فقط برای شما قابل مشاهده است. پس از بررسی مدیر (حداکثر تا ۲ ساعت) منتشر می‌شود.</div>`:''}
     ${item.status==='rejected'? `<div class="hint-box" style="background:#fde3e3;color:#a02020;"><i class="fa-solid fa-circle-exclamation"></i> این آگهی رد شده. ${item.rejectionReason? 'دلیل: '+esc(item.rejectionReason) : ''}</div>`:''}
     <div class="detail-title">${esc(item.title)}</div>
-    <div class="detail-title" style="font-size:18px;color:var(--p-700);">${item.price!=null? fmtPrice(item.price)+' تومان' : 'برای قیمت تماس بگیرید'}</div>
+    <div class="detail-title" style="font-size:18px;color:var(--p-700);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      ${item.originalPrice!=null && item.price!=null && item.originalPrice>item.price? `<span style="text-decoration:line-through;color:var(--ink-soft);font-weight:400;font-size:14px;">${fmtPrice(item.originalPrice)} تومان</span>` : ''}
+      <span>${item.price!=null? fmtPrice(item.price)+' تومان' : 'برای قیمت تماس بگیرید'}</span>
+    </div>
     <div class="detail-facts">${facts.map(f=>`<div class="fact"><span>${esc(f[0])}</span><b>${esc(f[1])}</b></div>`).join('')}</div>
     <div class="detail-desc">${esc(item.description||'توضیحی ثبت نشده است.').replace(/\n/g,'<br>')}</div>
     <div class="form-card">
@@ -529,16 +541,25 @@ function renderForm(editId){
       <div class="row2">
         <div class="field"><label>سایز</label><input id="fSize" value="${existing?esc(existing.size):''}" placeholder="مثلاً 38"></div>
         <div class="field"><label id="priceLabel">قیمت (تومان)</label><input id="fPrice" type="number" value="${existing?esc(existing.price||''):''}" placeholder="مبلغ"></div>
+        <div class="field">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" id="fHasDiscount" ${existing&&existing.originalPrice?'checked':''} style="width:auto;"> این آگهی تخفیف داره
+          </label>
+          <div id="discountRow" style="display:${existing&&existing.originalPrice?'block':'none'};margin-top:8px;">
+            <label>قیمت قبل از تخفیف (تومان)</label>
+            <input id="fOriginalPrice" type="number" value="${existing?esc(existing.originalPrice||''):''}" placeholder="مبلغ قبل از تخفیف">
+          </div>
+        </div>
       </div>
       <div class="field"><label>توضیحات</label><textarea id="fDesc" placeholder="رنگ، جنس پارچه، شرایط اجاره...">${existing?esc(existing.description):''}</textarea></div>
 
       <div class="field">
         <label>عکس‌ها (لینک) — ${policy.freeImageLimit} تای اول رایگان${policy.requireForExtraImages?'، بیشتر از اون نیاز به لایسنس داره':''}</label>
+        ${mg.url? `<div class="hint-box"><i class="fa-solid fa-circle-info"></i> ${mg.text? esc(mg.text)+' ' : 'برای گرفتن لینک عکس می‌توانید از این سایت استفاده کنید: '}<a href="${esc(mg.url)}" target="_blank" style="color:var(--p-700);font-weight:700;">${esc(mg.url)}</a></div>` : ''}
         <div id="imgRows"></div>
         <button class="btn small outline" id="addImgRow" type="button"><i class="fa-solid fa-plus"></i> افزودن عکس دیگر</button>
       </div>
       <div class="field"><label>لینک فیلم (اختیاری)</label><input id="fVid" value="${existing?esc(existing.videoUrl):''}" placeholder="لینک یوتیوب / آپارات / فایل mp4"></div>
-      ${mg.url? `<div class="hint-box"><i class="fa-solid fa-circle-info"></i> ${mg.text? esc(mg.text)+' ' : 'برای گرفتن لینک عکس یا فیلم می‌توانید از این سایت استفاده کنید: '}<a href="${esc(mg.url)}" target="_blank" style="color:var(--p-700);font-weight:700;">${esc(mg.url)}</a></div>` : ''}
 
       ${modeling.enabled? `
       <div class="field" style="background:var(--p-50);border:1px solid var(--line);border-radius:12px;padding:12px;">
@@ -577,6 +598,10 @@ function renderForm(editId){
     r.addEventListener('change', e=>{ document.getElementById('priceLabel').textContent = e.target.value==='sale'? 'قیمت فروش (تومان)' : 'قیمت اجاره (تومان)'; });
   });
   if(existing && existing.listingType==='sale') document.getElementById('priceLabel').textContent='قیمت فروش (تومان)';
+  document.getElementById('fHasDiscount').addEventListener('change', e=>{
+    document.getElementById('discountRow').style.display = e.target.checked? 'block':'none';
+    if(!e.target.checked) document.getElementById('fOriginalPrice').value='';
+  });
   const modelingCb = document.getElementById('fWantsModeling');
   if(modelingCb) modelingCb.addEventListener('change', e=>{ document.getElementById('modelingNote').style.display = e.target.checked? 'block':'none'; });
 
@@ -599,6 +624,7 @@ function renderForm(editId){
       images: images.filter(Boolean),
       videoUrl: document.getElementById('fVid').value.trim(),
       wantsModeling: document.getElementById('fWantsModeling')? document.getElementById('fWantsModeling').checked : false,
+      originalPrice: document.getElementById('fHasDiscount').checked && document.getElementById('fOriginalPrice').value? Number(document.getElementById('fOriginalPrice').value) : null,
     };
 
     const btn=document.getElementById('submitForm');
@@ -807,6 +833,7 @@ function renderAdminDashboard(body){
     <div class="section-title"><h2><i class="fa-solid fa-clock" style="color:var(--warn)"></i> در انتظار تأیید</h2><span class="count">${pending.length} مورد</span></div>
     ${pending.map(it=>`
       <div class="admin-row" style="border-color:#f0c674;background:#fffaf0;">
+        <img src="${esc((it.images&&it.images[0])||'')}" onerror="this.style.display='none'" style="width:44px;height:44px;border-radius:8px;object-fit:cover;background:var(--p-100);flex-shrink:0;">
         <div class="info"><b>${esc(it.title)} ${it.wantsModeling?'<i class="fa-solid fa-camera-retro" style="color:var(--p-600)" title="درخواست مدلینگ"></i>':''}</b><span>${esc(it.ownerName)} · ${esc(it.ownerPhone)} · ${fmtDate(it.createdAt)}</span></div>
         <div class="acts">
           <a class="icon-btn edit" href="#/item/${it.id}"><i class="fa-solid fa-eye"></i></a>
@@ -818,6 +845,7 @@ function renderAdminDashboard(body){
     <div class="section-title"><h2>سایر آگهی‌ها</h2><span class="count">${others.length} مورد</span></div>
     ${others.length? others.map(it=>`
       <div class="admin-row">
+        <img src="${esc((it.images&&it.images[0])||'')}" onerror="this.style.display='none'" style="width:44px;height:44px;border-radius:8px;object-fit:cover;background:var(--p-100);flex-shrink:0;">
         <div class="info"><b>${esc(it.title)} ${it.status==='closed'?'<span style="color:#999">(غیرفعال)</span>':it.status==='rejected'?'<span style="color:#a02020">(رد شده)</span>':''} ${it.wantsModeling?'<i class="fa-solid fa-camera-retro" style="color:var(--p-600)" title="درخواست مدلینگ"></i>':''}</b>
         <span>${esc(it.ownerName)} · ${esc(it.ownerPhone)} · ${fmtDate(it.createdAt)}</span></div>
         <div class="acts">
