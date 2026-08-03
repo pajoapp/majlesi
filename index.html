@@ -183,7 +183,7 @@ input,select,textarea{font-size:16px;}
 <div class="topbar"><div class="ticker-wrap"><div class="ticker-track" id="tickerTrack"></div></div></div>
 
 <div class="brandbar">
-  <div class="brand"><i class="fa-solid fa-shirt"></i> اجاره لباس مجلسی نوریوا  </div>
+  <div class="brand"><i class="fa-solid fa-shirt"></i> اجاره لباس مجلسی</div>
   <div style="display:flex;gap:8px;align-items:center;">
     <span class="conn-status" id="connStatus"><span class="dot" id="connDot"></span><span id="connText">در حال اتصال</span></span>
     <a href="#/admin" class="admin-link"><i class="fa-solid fa-lock"></i> مدیریت</a>
@@ -370,7 +370,7 @@ function matchesFilter(item){
 }
 function renderRecent(){
   const grid=document.getElementById('recentGrid'); if(!grid) return;
-  const items=DB.listings.filter(matchesFilter).sort((a,b)=>b.createdAt-a.createdAt).slice(0,20);
+  const items=DB.listings.filter(matchesFilter).sort((a,b)=>(b.featured?1:0)-(a.featured?1:0) || b.createdAt-a.createdAt).slice(0,20);
   grid.innerHTML=items.length? items.map(cardHtml).join('') : `<div class="empty-state" style="grid-column:1/-1"><i class="fa-solid fa-shirt"></i>موردی یافت نشد</div>`;
 }
 function cardHtml(item){
@@ -383,6 +383,7 @@ function cardHtml(item){
     <div class="thumb" style="${img?`background-image:url('${esc(img)}')`:''}">
       ${img?'':'<i class="fa-solid fa-shirt"></i>'}
       <span class="badge">${typeLabel} · ${esc(item.category||'لباس')}</span>
+      ${item.featured? `<span class="badge" style="top:auto;bottom:6px;background:#c9971f;">⭐ ویژه</span>` : ''}
     </div>
     <div class="body">
       <h3>${esc(item.title)}</h3>
@@ -421,7 +422,7 @@ function renderList(){
 }
 function renderListGrid(){
   const grid=document.getElementById('listGrid');
-  const arr=DB.listings.filter(matchesFilter).sort((a,b)=>b.createdAt-a.createdAt);
+  const arr=DB.listings.filter(matchesFilter).sort((a,b)=>(b.featured?1:0)-(a.featured?1:0) || b.createdAt-a.createdAt);
   grid.innerHTML=arr.length? arr.map(cardHtml).join('') : `<div class="empty-state" style="grid-column:1/-1"><i class="fa-solid fa-shirt"></i>آگهی‌ای ثبت نشده است</div>`;
 }
 
@@ -823,6 +824,7 @@ function renderAdminDashboard(body){
           <a class="icon-btn edit" href="#/item/${it.id}"><i class="fa-solid fa-eye"></i></a>
           <a class="icon-btn edit" href="#/edit/${it.id}"><i class="fa-solid fa-pen"></i></a>
           ${it.status!=='rejected'? `<button class="icon-btn" data-close="${it.id}"><i class="fa-solid ${it.status==='closed'?'fa-lock-open':'fa-lock'}"></i></button>`:''}
+          <button class="icon-btn" style="color:${it.featured?'#c9971f':'inherit'};border-color:${it.featured?'#c9971f':'var(--line)'};" data-feat="${it.id}"><i class="fa-solid fa-star"></i></button>
           <button class="icon-btn del" data-del="${it.id}"><i class="fa-solid fa-trash"></i></button>
         </div>
       </div>`).join('') : `<div class="empty-state"><i class="fa-solid fa-inbox"></i>هنوز آگهی‌ای ثبت نشده</div>`}
@@ -835,6 +837,11 @@ function renderAdminDashboard(body){
     const reason=prompt('دلیل رد آگهی (اختیاری):','');
     if(reason===null) return;
     try{ await apiFetch(`/api/listings/${b.dataset.reject}`, { method:'PUT', admin:true, body:{status:'rejected', rejectionReason:reason} }); await refreshData(false); toast('آگهی رد شد'); renderAdminDashboard(body); }
+    catch(e){ if(!handleAuthError(e)) toast('خطا: '+e.message); }
+  }));
+  body.querySelectorAll('[data-feat]').forEach(b=>b.addEventListener('click', async ()=>{
+    const it=DB.listings.find(x=>x.id===b.dataset.feat);
+    try{ await apiFetch(`/api/listings/${b.dataset.feat}`, { method:'PUT', admin:true, body:{featured:!it.featured} }); await refreshData(false); toast(it.featured?'از حالت ویژه خارج شد':'آگهی ویژه شد'); renderAdminDashboard(body); }
     catch(e){ if(!handleAuthError(e)) toast('خطا: '+e.message); }
   }));
   body.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click', async ()=>{
