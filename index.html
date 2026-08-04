@@ -91,7 +91,7 @@ input,select,textarea{font-size:16px;}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 .card{background:#fff;border-radius:var(--radius);overflow:hidden;border:1px solid var(--line);box-shadow:var(--shadow);display:flex;flex-direction:column;animation:fadeIn .35s ease both;}
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
-.card .thumb{width:100%;aspect-ratio:3/4;background:var(--p-100) center/cover no-repeat;display:flex;align-items:center;justify-content:center;color:var(--p-500);font-size:26px;position:relative;}
+.card .thumb{width:100%;aspect-ratio:3/4;background:var(--p-100) center/contain no-repeat;display:flex;align-items:center;justify-content:center;color:var(--p-500);font-size:26px;position:relative;}
 .badge{position:absolute;top:6px;right:6px;background:var(--p-700);color:#fff;font-size:10px;padding:3px 8px;border-radius:20px;font-weight:600;}
 .badge.closed{background:#9a9a9a;}
 .card .body{padding:10px;flex:1;display:flex;flex-direction:column;gap:4px;}
@@ -121,7 +121,7 @@ input,select,textarea{font-size:16px;}
 .hint-box{background:var(--p-100);color:var(--p-900);border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.9;margin-bottom:10px;}
 
 .gallery{border-radius:var(--radius);overflow:hidden;background:var(--p-100);margin-bottom:10px;box-shadow:var(--shadow);}
-.gallery .main-img{width:100%;aspect-ratio:3/4;object-fit:cover;background:var(--p-100);}
+.gallery .main-img{width:100%;max-height:520px;object-fit:contain;background:var(--p-100);display:block;}
 .gallery .thumbs{display:flex;gap:6px;padding:8px;overflow-x:auto;background:#fff;}
 .gallery .thumbs img{width:56px;height:56px;object-fit:cover;border-radius:8px;border:2px solid transparent;flex-shrink:0;}
 .gallery .thumbs img.active{border-color:var(--p-600);}
@@ -276,6 +276,7 @@ function defaultDB(){
       licensePolicy:{requireForPosting:false, requireForExtraImages:false, freeImageLimit:5},
       mediaGuide:{text:'',url:''},
       cloudinary:{cloudName:'',uploadPreset:''},
+      videoEnabled:true,
       modeling:{enabled:true, price:200000, note:'عکاسی مدلینگ لباس شما توسط تیم ما — هزینه جداگانه دارد.'}
     },
     ticker:{text:'👗 روا | برای ثبت آگهی رایگان اجاره یا فروش لباس مجلسی، از دکمهٔ زیر استفاده کنید — آگهی شما پس از بررسی مدیر منتشر می‌شود'},
@@ -563,6 +564,7 @@ function renderDetail(id){
     <div class="form-card">
       <h2><i class="fa-solid fa-phone"></i> تماس با صاحب آگهی</h2>
       <a class="btn" href="tel:${esc(item.ownerPhone||'')}"><i class="fa-solid fa-phone"></i> ${esc(item.ownerPhone||'ثبت نشده')}</a>
+      ${(!isAdminLoggedIn() && MY_OWNER && MY_OWNER.phone && MY_OWNER.phone===item.ownerPhone) ? `<a class="btn outline" href="#/edit/${item.id}" style="margin-top:8px;"><i class="fa-solid fa-pen"></i> ویرایش آگهی من (از جمله قیمت)</a>` : ''}
     </div>
   `;
   document.querySelectorAll('[data-thumb]').forEach(t=>{
@@ -582,6 +584,14 @@ function renderForm(editId){
   const editing=!!editId;
   const existing = editing? findItem(editId) : null;
   if(editing && !existing){ app.innerHTML=`<div class="empty-state">آگهی یافت نشد</div>`; return; }
+
+  if(editing && !isAdminLoggedIn()){
+    const isOwner = MY_OWNER && MY_OWNER.phone && MY_OWNER.phone===existing.ownerPhone;
+    if(!isOwner){
+      app.innerHTML=`<div class="empty-state"><i class="fa-solid fa-lock"></i>شما اجازهٔ ویرایش این آگهی را ندارید.</div>`;
+      return;
+    }
+  }
 
   const policy = DB.settings.licensePolicy;
   const mg = DB.settings.mediaGuide || {text:'',url:''};
@@ -612,7 +622,7 @@ function renderForm(editId){
 
         <div class="row2">
           <div class="field"><label>نام شما</label><input id="ownerName" value="${esc((MY_OWNER&&MY_OWNER.name)||(existing&&existing.ownerName)||'')}" placeholder="نام و نام خانوادگی"></div>
-          <div class="field"><label>شماره تماس</label><input id="ownerPhone" value="${esc((MY_OWNER&&MY_OWNER.phone)||(existing&&existing.ownerPhone)||'')}" placeholder="09xxxxxxxxx" inputmode="tel"></div>
+          <div class="field"><label>شماره تماس</label><input id="ownerPhone" value="${esc((MY_OWNER&&MY_OWNER.phone)||(existing&&existing.ownerPhone)||'')}" placeholder="09xxxxxxxxx" inputmode="tel" ${editing&&!isAdminLoggedIn()?'readonly style="background:#eee;"':''}></div>
         </div>
 
         <div class="field">
@@ -644,7 +654,7 @@ function renderForm(editId){
           </div>
         </div>
         <div class="field"><label>توضیحات</label><textarea id="fDesc" placeholder="رنگ، جنس پارچه، شرایط اجاره...">${existing?esc(existing.description):''}</textarea></div>
-        <div class="field"><label>لینک فیلم (اختیاری)</label><input id="fVid" value="${existing?esc(existing.videoUrl):''}" placeholder="لینک یوتیوب / آپارات / فایل mp4"></div>
+        ${DB.settings.videoEnabled!==false? `<div class="field"><label>لینک فیلم (اختیاری)</label><input id="fVid" value="${existing?esc(existing.videoUrl):''}" placeholder="لینک یوتیوب / آپارات / فایل mp4"></div>` : ''}
 
         ${modeling.enabled? `
         <div class="field" style="background:var(--p-50);border:1px solid var(--line);border-radius:12px;padding:12px;">
@@ -676,7 +686,7 @@ function renderForm(editId){
     window.scrollTo(0,0);
   });
 
-  async function resizeImageFile(file, maxDim=1280, quality=0.75){
+  async function resizeImageFile(file, maxDim=1000, quality=0.62){
     try{
       const bitmap = await createImageBitmap(file);
       let {width, height} = bitmap;
@@ -690,8 +700,8 @@ function renderForm(editId){
       ctx.drawImage(bitmap,0,0,width,height);
       let blob=await new Promise(res=>canvas.toBlob(res,'image/jpeg',quality));
       if(!blob) return null;
-      if(blob.size > 5*1024*1024){
-        blob = await new Promise(res=>canvas.toBlob(res,'image/jpeg',0.55));
+      if(blob.size > 1.2*1024*1024){
+        blob = await new Promise(res=>canvas.toBlob(res,'image/jpeg',0.45));
       }
       return blob;
     }catch(e){
@@ -778,7 +788,7 @@ function renderForm(editId){
       price: document.getElementById('fPrice').value? Number(document.getElementById('fPrice').value) : null,
       description: document.getElementById('fDesc').value.trim(),
       images: images.filter(Boolean),
-      videoUrl: document.getElementById('fVid').value.trim(),
+      videoUrl: document.getElementById('fVid')? document.getElementById('fVid').value.trim() : '',
       wantsModeling: document.getElementById('fWantsModeling')? document.getElementById('fWantsModeling').checked : false,
       originalPrice: document.getElementById('fHasDiscount').checked && document.getElementById('fOriginalPrice').value? Number(document.getElementById('fOriginalPrice').value) : null,
     };
@@ -791,9 +801,15 @@ function renderForm(editId){
 
     try{
       if(editing){
-        await apiFetch(`/api/listings/${existing.id}`, { method:'PUT', admin:true, body:payload });
-        await refreshData(false);
-        toast('آگهی ویرایش شد'); go('#/item/'+existing.id);
+        if(isAdminLoggedIn()){
+          await apiFetch(`/api/listings/${existing.id}`, { method:'PUT', admin:true, body:payload });
+          await refreshData(false);
+          toast('آگهی ویرایش شد'); go('#/item/'+existing.id);
+        } else {
+          await apiFetch(`/api/my-listings/${existing.id}`, { method:'PUT', body:{ ...payload, ownerPhone: existing.ownerPhone } });
+          await refreshData(false);
+          toast('ویرایش شما ثبت شد — آگهی دوباره در انتظار تأیید مدیر است'); go('#/item/'+existing.id);
+        }
       } else {
         const res = await apiFetch('/api/listings', { method:'POST', body:{ ownerName, ownerPhone, item:payload } });
         await refreshData(false); renderTicker();
@@ -803,6 +819,8 @@ function renderForm(editId){
     }catch(e){
       if(e.status===403 && e.data && e.data.error==='license_required'){
         toast(e.data.message || 'برای ثبت آگهی نیاز به لایسنس دارید');
+      } else if(e.status===403){
+        toast('شما اجازهٔ ویرایش این آگهی را ندارید');
       } else {
         toast('ثبت ناموفق بود: '+e.message);
       }
@@ -1263,6 +1281,14 @@ function renderAdminSettings(body){
       <div class="hint-box"><i class="fa-solid fa-circle-check"></i> دکمهٔ «آپلود عکس از گوشی» بدون هیچ تنظیم اضافه‌ای فعاله — عکس‌ها مستقیم داخل همین Cloudflare Worker/KV شما ذخیره می‌شن، بدون نیاز به هیچ سرویس شخص‌ثالث.</div>
     </div>
     <div class="settings-block">
+      <h4><i class="fa-solid fa-film"></i> فیلد فیلم در فرم ثبت آگهی</h4>
+      <div class="toggle-row">
+        <span>نمایش فیلد «لینک فیلم» هنگام ثبت/ویرایش آگهی</span>
+        <label class="switch"><input type="checkbox" id="polVideo" ${DB.settings.videoEnabled!==false?'checked':''}><span class="slider"></span></label>
+      </div>
+      <button class="btn small" id="saveVideoToggle"><i class="fa-solid fa-check"></i> ذخیره</button>
+    </div>
+    <div class="settings-block">
       <h4><i class="fa-solid fa-image"></i> راهنمای آپلود عکس/فیلم</h4>
       <p style="font-size:12px;color:var(--ink-soft);margin-top:0;">این متن و لینک، کنار فیلدهای عکس/فیلم در فرم ثبت آگهی نمایش داده می‌شود.</p>
       <div class="field"><label>متن راهنما</label><input id="mgText" value="${esc(mg.text)}" placeholder="مثلاً: عکس‌هاتون رو اینجا آپلود کنید و لینکشو بگیرید:"></div>
@@ -1290,6 +1316,12 @@ function renderAdminSettings(body){
       <button class="btn small" id="saveSiteName"><i class="fa-solid fa-check"></i> ذخیره</button>
     </div>
   `;
+  document.getElementById('saveVideoToggle').addEventListener('click', async ()=>{
+    try{
+      const videoEnabled=document.getElementById('polVideo').checked;
+      await apiFetch('/api/settings', { method:'PUT', admin:true, body:{videoEnabled} }); await refreshData(false); toast('ذخیره شد');
+    }catch(e){ if(!handleAuthError(e)) toast('خطا: '+e.message); }
+  });
   document.getElementById('saveMediaGuide').addEventListener('click', async ()=>{
     try{
       const mediaGuide={ text:document.getElementById('mgText').value.trim(), url:document.getElementById('mgUrl').value.trim() };
