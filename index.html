@@ -675,6 +675,26 @@ function renderForm(editId){
     window.scrollTo(0,0);
   });
 
+  async function resizeImageFile(file, maxDim=1600, quality=0.82){
+    try{
+      const bitmap = await createImageBitmap(file);
+      let {width, height} = bitmap;
+      if(width>maxDim || height>maxDim){
+        if(width>height){ height=Math.round(height*maxDim/width); width=maxDim; }
+        else { width=Math.round(width*maxDim/height); height=maxDim; }
+      }
+      const canvas=document.createElement('canvas');
+      canvas.width=width; canvas.height=height;
+      const ctx=canvas.getContext('2d');
+      ctx.drawImage(bitmap,0,0,width,height);
+      const blob=await new Promise(res=>canvas.toBlob(res,'image/jpeg',quality));
+      if(!blob) return file;
+      const newName=(file.name||'photo').replace(/\.\w+$/,'')+'.jpg';
+      return new File([blob], newName, {type:'image/jpeg'});
+    }catch(e){
+      return file; // اگر فشرده‌سازی ممکن نبود، همون فایل اصلی رو بفرست
+    }
+  }
   async function uploadToCatbox(file){
     if(!apiReady()) throw new Error('سرور پیکربندی نشده');
     const fd=new FormData();
@@ -692,9 +712,11 @@ function renderForm(editId){
     if(!files.length) return;
     uploadBtn.disabled=true;
     for(const file of files){
+      uploadBtn.innerHTML=`<span class="spinner"></span> در حال فشرده‌سازی ${file.name}...`;
+      const smallFile = await resizeImageFile(file);
       uploadBtn.innerHTML=`<span class="spinner"></span> در حال آپلود ${file.name}...`;
       try{
-        const url=await uploadToCatbox(file);
+        const url=await uploadToCatbox(smallFile);
         if(images.length===1 && !images[0]) images[0]=url; else images.push(url);
         renderImgRows();
       }catch(e){ toast('آپلود ناموفق بود: '+e.message); }
