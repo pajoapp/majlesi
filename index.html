@@ -275,6 +275,7 @@ function defaultDB(){
       contact:{phone:'',telegram:'',whatsapp:'',email:'',note:''},
       licensePolicy:{requireForPosting:false, requireForExtraImages:false, freeImageLimit:5},
       mediaGuide:{text:'',url:''},
+      cloudinary:{cloudName:'',uploadPreset:''},
       modeling:{enabled:true, price:200000, note:'عکاسی مدلینگ لباس شما توسط تیم ما — هزینه جداگانه دارد.'}
     },
     ticker:{text:'👗 روا | برای ثبت آگهی رایگان اجاره یا فروش لباس مجلسی، از دکمهٔ زیر استفاده کنید — آگهی شما پس از بررسی مدیر منتشر می‌شود'},
@@ -689,7 +690,6 @@ function renderForm(editId){
       ctx.drawImage(bitmap,0,0,width,height);
       let blob=await new Promise(res=>canvas.toBlob(res,'image/jpeg',quality));
       if(!blob) return null;
-      // اگر بازم بزرگ بود، یه بار دیگه با کیفیت کمتر امتحان کن
       if(blob.size > 5*1024*1024){
         blob = await new Promise(res=>canvas.toBlob(res,'image/jpeg',0.55));
       }
@@ -698,16 +698,20 @@ function renderForm(editId){
       return null; // مرورگر نتونست عکس رو بخونه/فشرده کنه (مثلاً فرمت HEIC)
     }
   }
-  async function uploadToCatbox(file){
-    if(!apiReady()) throw new Error('سرور پیکربندی نشده');
+  async function uploadImageFile(file){
+    const cfg = DB.settings.cloudinary || {};
+    if(!cfg.cloudName || !cfg.uploadPreset){
+      throw new Error('آپلود مستقیم هنوز تنظیم نشده — مدیر باید از پنل تنظیمات، Cloudinary رو وصل کنه. فعلاً از «افزودن لینک عکس دستی» استفاده کنید.');
+    }
     const compressed = await resizeImageFile(file);
     if(!compressed) throw new Error('این فرمت عکس پشتیبانی نمی‌شود — لطفاً یک عکس JPG یا PNG انتخاب کنید');
-    if(compressed.size > 6*1024*1024) throw new Error('حجم عکس بعد از فشرده‌سازی هنوز زیاده — یه عکس دیگه امتحان کنید');
-    const name=(file.name||'photo').replace(/\.\w+$/,'')+'.jpg';
-    const res=await fetch(apiUrl('/api/upload-image?name='+encodeURIComponent(name)), { method:'POST', body:compressed });
+    const fd=new FormData();
+    fd.append('file', compressed, (file.name||'photo').replace(/\.\w+$/,'')+'.jpg');
+    fd.append('upload_preset', cfg.uploadPreset);
+    const res=await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(cfg.cloudName)}/image/upload`, { method:'POST', body:fd });
     let data=null; try{ data=await res.json(); }catch(e){}
-    if(!res.ok || !data || !data.url) throw new Error((data&&data.error)||('HTTP '+res.status));
-    return data.url;
+    if(!res.ok || !data || !data.secure_url) throw new Error((data&&data.error&&data.error.message)||('HTTP '+res.status));
+    return data.secure_url;
   }
   const uploadBtn=document.getElementById('uploadImgBtn');
   const fileInput=document.getElementById('imgFileInput');
@@ -719,7 +723,7 @@ function renderForm(editId){
     for(const file of files){
       uploadBtn.innerHTML=`<span class="spinner"></span> در حال فشرده‌سازی و آپلود ${file.name}...`;
       try{
-        const url=await uploadToCatbox(file);
+        const url=await uploadImageFile(file);
         if(images.length===1 && !images[0]) images[0]=url; else images.push(url);
         renderImgRows();
       }catch(e){ toast('آپلود ناموفق بود: '+e.message); }
@@ -1240,6 +1244,7 @@ function renderAdminBackup(body){
 function renderAdminSettings(body){
   const policy=DB.settings.licensePolicy;
   const mg=DB.settings.mediaGuide||{text:'',url:''};
+  const cld=DB.settings.cloudinary||{cloudName:'',uploadPreset:''};
   const modeling=DB.settings.modeling||{enabled:true,price:200000,note:''};
   body.innerHTML=`
     <div class="settings-block">
@@ -1259,6 +1264,17 @@ function renderAdminSettings(body){
       </div>
       <div class="field" style="margin-top:10px;"><label>تعداد عکس رایگان</label><input id="polLimit" type="number" value="${policy.freeImageLimit}"></div>
       <button class="btn small" id="savePolicy"><i class="fa-solid fa-check"></i> ذخیره سیاست لایسنس</button>
+    </div>
+    <div class="settings-block">
+      <h4><i class="fa-solid fa-cloud-arrow-up"></i> آپلود مستقیم عکس (Cloudinary)</h4>
+      <div class="hint-box">
+        برای فعال‌سازی دکمهٔ «آپلود عکس از گوشی»، یک‌بار در <b>cloudinary.com</b> ثبت‌نام رایگان کنید (بدون کارت بانکی)، از Dashboard مقدار <b>Cloud Name</b> رو کپی کنید، و از Settings ← Upload یک <b>Upload Preset</b> جدید با حالت <b>Unsigned</b> بسازید — اسمش رو اینجا وارد کنید.
+      </div>
+      <div class="row2">
+        <div class="field"><label>Cloud Name</label><input id="cldName" value="${esc(cld.cloudName)}" placeholder="مثلاً dxxxxxx"></div>
+        <div class="field"><label>Upload Preset</label><input id="cldPreset" value="${esc(cld.uploadPreset)}" placeholder="مثلاً rental_unsigned"></div>
+      </div>
+      <button class="btn small" id="saveCloudinary"><i class="fa-solid fa-check"></i> ذخیره تنظیمات آپلود</button>
     </div>
     <div class="settings-block">
       <h4><i class="fa-solid fa-image"></i> راهنمای آپلود عکس/فیلم</h4>
@@ -1288,6 +1304,12 @@ function renderAdminSettings(body){
       <button class="btn small" id="saveSiteName"><i class="fa-solid fa-check"></i> ذخیره</button>
     </div>
   `;
+  document.getElementById('saveCloudinary').addEventListener('click', async ()=>{
+    try{
+      const cloudinary={ cloudName:document.getElementById('cldName').value.trim(), uploadPreset:document.getElementById('cldPreset').value.trim() };
+      await apiFetch('/api/settings', { method:'PUT', admin:true, body:{cloudinary} }); await refreshData(false); toast('تنظیمات آپلود ذخیره شد');
+    }catch(e){ if(!handleAuthError(e)) toast('خطا: '+e.message); }
+  });
   document.getElementById('saveMediaGuide').addEventListener('click', async ()=>{
     try{
       const mediaGuide={ text:document.getElementById('mgText').value.trim(), url:document.getElementById('mgUrl').value.trim() };
