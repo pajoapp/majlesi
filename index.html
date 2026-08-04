@@ -676,13 +676,13 @@ function renderForm(editId){
   });
 
   async function uploadToCatbox(file){
+    if(!apiReady()) throw new Error('سرور پیکربندی نشده');
     const fd=new FormData();
-    fd.append('reqtype','fileupload');
-    fd.append('fileToUpload', file);
-    const res=await fetch('https://catbox.moe/user/api.php', { method:'POST', body:fd });
-    const text=(await res.text()).trim();
-    if(!res.ok || !text.startsWith('http')) throw new Error(text||'آپلود ناموفق بود');
-    return text;
+    fd.append('file', file, file.name||'photo.jpg');
+    const res=await fetch(apiUrl('/api/upload-image'), { method:'POST', body:fd });
+    let data=null; try{ data=await res.json(); }catch(e){}
+    if(!res.ok || !data || !data.url) throw new Error((data&&data.error)||('HTTP '+res.status));
+    return data.url;
   }
   const uploadBtn=document.getElementById('uploadImgBtn');
   const fileInput=document.getElementById('imgFileInput');
