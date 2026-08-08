@@ -354,6 +354,7 @@ function renderRoute(){
   if(parts[0]==='add'){ setActiveNav('add'); return renderForm(); }
   if(parts[0]==='edit'){ setActiveNav(''); return renderForm(parts[1]); }
   if(parts[0]==='contact'){ setActiveNav('contact'); return renderContact(); }
+  if(parts[0]==='boutique'){ setActiveNav(''); return renderBoutique(decodeURIComponent(parts[1]||'')); }
   if(parts[0]==='admin'){ setActiveNav('admin'); return renderAdmin(parts[1]||'dashboard'); }
   setActiveNav('home'); renderHome();
 }
@@ -408,9 +409,27 @@ function listingTypeOptions(sel){
   return `<option value="">اجاره و فروش</option><option value="rent" ${sel==='rent'?'selected':''}>فقط اجاره</option><option value="sale" ${sel==='sale'?'selected':''}>فقط فروش</option>`;
 }
 
+function boutiqueRowHtml(){
+  const boutiques = (DB.owners||[]).filter(o=>o.isBoutique);
+  if(!boutiques.length) return '';
+  return `
+    <div class="section-title"><h2><i class="fa-solid fa-store"></i> مزون‌ها</h2></div>
+    <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:10px;margin-bottom:6px;">
+      ${boutiques.map(b=>`
+        <a href="#/boutique/${encodeURIComponent(b.phone)}" style="flex-shrink:0;width:78px;text-align:center;">
+          <div style="width:64px;height:64px;border-radius:50%;background:${b.boutiqueLogo?`url('${esc(b.boutiqueLogo)}') center/cover`:'var(--p-100)'};margin:0 auto 6px;display:flex;align-items:center;justify-content:center;color:var(--p-600);font-size:20px;border:2px solid var(--p-200,var(--line));box-shadow:var(--shadow);">
+            ${b.boutiqueLogo?'':'<i class="fa-solid fa-store"></i>'}
+          </div>
+          <div style="font-size:11px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(b.boutiqueName||b.name||'مزون')}</div>
+        </a>
+      `).join('')}
+    </div>
+  `;
+}
 function renderHome(){
   const app=document.getElementById('app');
   app.innerHTML=`
+    ${boutiqueRowHtml()}
     <div class="search-box"><i class="fa-solid fa-magnifying-glass"></i>
       <input id="searchInput" placeholder="جستجوی لباس..." value="${esc(FILTER_STATE.q)}"></div>
     <div class="filters">
@@ -457,14 +476,27 @@ function cardHtml(item){
   const loc=[item.city,item.province].filter(Boolean).join('، ');
   const typeLabel = item.listingType==='sale'? 'فروش' : 'اجاره';
   const isLiked = LIKED_IDS.has(item.id);
+  const showVideo = !!(item.showVideoOnCard && item.videoUrl);
+  let videoHtml='';
+  if(showVideo){
+    if(isYoutube(item.videoUrl)){
+      const embedUrl=toYoutubeEmbed(item.videoUrl);
+      const vidId=(embedUrl.match(/embed\/([\w-]+)/)||[])[1]||'';
+      videoHtml=`<iframe src="${embedUrl}${embedUrl.includes('?')?'&':'?'}autoplay=1&mute=1&loop=1&controls=0&playsinline=1${vidId?`&playlist=${vidId}`:''}" style="width:100%;height:100%;border:none;position:absolute;inset:0;" allow="autoplay"></iframe>`;
+    } else if(isAparat(item.videoUrl)){
+      videoHtml=`<iframe src="${toAparatEmbed(item.videoUrl)}" style="width:100%;height:100%;border:none;position:absolute;inset:0;" allow="autoplay"></iframe>`;
+    } else {
+      videoHtml=`<video src="${esc(item.videoUrl)}" style="width:100%;height:100%;object-fit:contain;position:absolute;inset:0;" autoplay muted loop playsinline></video>`;
+    }
+  }
   return `
   <a class="card" href="#/item/${item.id}">
-    <div class="thumb" style="${img?`background-image:url('${esc(img)}')`:''}">
-      ${img?'':'<i class="fa-solid fa-shirt"></i>'}
+    <div class="thumb" style="${(!showVideo&&img)?`background-image:url('${esc(img)}')`:''}">
+      ${showVideo? videoHtml : (img?'':'<i class="fa-solid fa-shirt"></i>')}
       <span class="badge">${typeLabel} · ${esc(item.category||'لباس')}</span>
       ${item.featured? `<span class="badge" style="top:auto;bottom:6px;background:#c9971f;">⭐ ویژه</span>` : ''}
       ${hasDiscount? `<span class="badge" style="top:auto;bottom:6px;${item.featured?'left:6px;right:auto;':''}background:var(--danger);">تخفیف</span>` : ''}
-      <button onclick="event.preventDefault();event.stopPropagation();handleLikeClick('${item.id}',this);" style="position:absolute;top:6px;left:6px;width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.92);border:none;display:flex;align-items:center;justify-content:center;color:${isLiked?'var(--danger)':'#999'};">
+      <button onclick="event.preventDefault();event.stopPropagation();handleLikeClick('${item.id}',this);" style="position:absolute;top:6px;left:6px;width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.92);border:none;display:flex;align-items:center;justify-content:center;color:${isLiked?'var(--danger)':'#999'};z-index:2;">
         <i class="fa-${isLiked?'solid':'regular'} fa-heart"></i>
       </button>
     </div>
@@ -476,6 +508,23 @@ function cardHtml(item){
   </a>`;
 }
 
+function renderBoutique(phone){
+  const app=document.getElementById('app');
+  const owner=(DB.owners||[]).find(o=>o.phone===phone);
+  if(!owner){ app.innerHTML=`<div class="empty-state"><i class="fa-solid fa-store-slash"></i>مزون یافت نشد</div>`; return; }
+  const items=DB.listings.filter(x=>x.status==='active' && x.ownerPhone===phone).sort((a,b)=>(b.featured?1:0)-(a.featured?1:0) || b.createdAt-a.createdAt);
+  app.innerHTML=`
+    <a class="back-link" href="#/"><i class="fa-solid fa-arrow-right"></i> مشاهدهٔ همهٔ مزون‌ها و آگهی‌ها</a>
+    <div class="form-card" style="text-align:center;margin-bottom:16px;">
+      <div style="width:80px;height:80px;border-radius:50%;background:${owner.boutiqueLogo?`url('${esc(owner.boutiqueLogo)}') center/cover`:'var(--p-100)'};margin:0 auto 10px;display:flex;align-items:center;justify-content:center;color:var(--p-600);font-size:28px;box-shadow:var(--shadow);">
+        ${owner.boutiqueLogo?'':'<i class="fa-solid fa-store"></i>'}
+      </div>
+      <h2 style="margin:0;">${esc(owner.boutiqueName||owner.name||'مزون')}</h2>
+      <p style="font-size:12px;color:var(--ink-soft);margin:6px 0 0;">${items.length} آگهی فعال</p>
+    </div>
+    <div class="grid">${items.length? items.map(cardHtml).join('') : `<div class="empty-state" style="grid-column:1/-1"><i class="fa-solid fa-shirt"></i>این مزون فعلاً آگهی فعالی نداره</div>`}</div>
+  `;
+}
 function renderList(){
   const app=document.getElementById('app');
   app.innerHTML=`
@@ -1028,6 +1077,7 @@ function renderAdminDashboard(body){
           <a class="icon-btn edit" href="#/edit/${it.id}"><i class="fa-solid fa-pen"></i></a>
           ${it.status!=='rejected'? `<button class="icon-btn" data-close="${it.id}"><i class="fa-solid ${it.status==='closed'?'fa-lock-open':'fa-lock'}"></i></button>`:''}
           <button class="icon-btn" style="color:${it.featured?'#c9971f':'inherit'};border-color:${it.featured?'#c9971f':'var(--line)'};" data-feat="${it.id}"><i class="fa-solid fa-star"></i></button>
+          ${it.videoUrl? `<button class="icon-btn" style="color:${it.showVideoOnCard?'var(--p-700)':'inherit'};border-color:${it.showVideoOnCard?'var(--p-700)':'var(--line)'};" data-vidcard="${it.id}" title="نمایش ویدیو به‌جای عکس در صفحه اصلی"><i class="fa-solid fa-clapperboard"></i></button>` : ''}
           <button class="icon-btn del" data-del="${it.id}"><i class="fa-solid fa-trash"></i></button>
         </div>
       </div>`).join('') : `<div class="empty-state"><i class="fa-solid fa-inbox"></i>هنوز آگهی‌ای ثبت نشده</div>`}
@@ -1045,6 +1095,11 @@ function renderAdminDashboard(body){
   body.querySelectorAll('[data-feat]').forEach(b=>b.addEventListener('click', async ()=>{
     const it=DB.listings.find(x=>x.id===b.dataset.feat);
     try{ await apiFetch(`/api/listings/${b.dataset.feat}`, { method:'PUT', admin:true, body:{featured:!it.featured} }); await refreshData(false); toast(it.featured?'از حالت ویژه خارج شد':'آگهی ویژه شد'); renderAdminDashboard(body); }
+    catch(e){ if(!handleAuthError(e)) toast('خطا: '+e.message); }
+  }));
+  body.querySelectorAll('[data-vidcard]').forEach(b=>b.addEventListener('click', async ()=>{
+    const it=DB.listings.find(x=>x.id===b.dataset.vidcard);
+    try{ await apiFetch(`/api/listings/${b.dataset.vidcard}`, { method:'PUT', admin:true, body:{showVideoOnCard:!it.showVideoOnCard} }); await refreshData(false); toast(it.showVideoOnCard?'صفحه اصلی دوباره عکس نشون می‌ده':'صفحه اصلی این آگهی الان ویدیو نشون می‌ده'); renderAdminDashboard(body); }
     catch(e){ if(!handleAuthError(e)) toast('خطا: '+e.message); }
   }));
   body.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click', async ()=>{
@@ -1074,7 +1129,7 @@ function renderAdminLicenses(body){
     ${owners.length? owners.map(o=>{
       const active = o.licenses && o.licenses.some(l=>l.endDate>Date.now());
       const latest = o.licenses && o.licenses.length? o.licenses.slice().sort((a,b)=>b.endDate-a.endDate)[0] : null;
-      return `<div class="admin-row">
+      return `<div class="admin-row" style="flex-wrap:wrap;">
         <div class="info">
           <b>${esc(o.name||'(بدون نام)')} — ${esc(o.phone)}</b>
           <span>${active? `لایسنس فعال تا ${fmtDate(latest.endDate)}` : 'بدون لایسنس فعال'}</span>
@@ -1083,6 +1138,16 @@ function renderAdminLicenses(body){
           <select data-planfor="${esc(o.phone)}" style="width:auto;padding:6px;border-radius:8px;border:1px solid var(--line);font-size:12px;">${PLANS.map(p=>`<option value="${p[0]}">${p[1]}</option>`).join('')}</select>
           <button class="icon-btn" style="color:var(--p-700);border-color:var(--p-700);" data-activatefor="${esc(o.phone)}"><i class="fa-solid fa-check"></i></button>
         </div>
+        <div style="width:100%;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;white-space:nowrap;">
+            <input type="checkbox" data-boutiquetoggle="${esc(o.phone)}" ${o.isBoutique?'checked':''} style="width:auto;"> مزون
+          </label>
+          <input data-boutiquename="${esc(o.phone)}" placeholder="نام مزون" value="${esc(o.boutiqueName||'')}" style="flex:1;min-width:110px;padding:6px 8px;border-radius:8px;border:1px solid var(--line);font-size:12px;">
+          <input data-boutiquelogo="${esc(o.phone)}" placeholder="لینک لوگو (اختیاری)" value="${esc(o.boutiqueLogo||'')}" style="flex:1;min-width:130px;padding:6px 8px;border-radius:8px;border:1px solid var(--line);font-size:12px;">
+          <button class="btn small" data-savebtq="${esc(o.phone)}">ذخیره مزون</button>
+          <button class="btn small outline" data-showqr="${esc(o.phone)}"><i class="fa-solid fa-qrcode"></i> QR کد</button>
+        </div>
+        <div id="qr-${esc(o.phone).replace(/[^\w]/g,'_')}" style="display:none;width:100%;text-align:center;margin-top:10px;"></div>
       </div>`;
     }).join('') : `<div class="empty-state"><i class="fa-solid fa-id-card"></i>هنوز صاحب آگهی‌ای ثبت نشده</div>`}
   `;
@@ -1099,6 +1164,34 @@ function renderAdminLicenses(body){
       const plan=document.querySelector(`[data-planfor="${phone}"]`).value;
       try{ await apiFetch(`/api/owners/${encodeURIComponent(phone)}/license`, { method:'POST', admin:true, body:{plan} }); await refreshData(false); toast('لایسنس فعال شد'); renderAdminLicenses(body); }
       catch(e){ if(!handleAuthError(e)) toast('خطا: '+e.message); }
+    });
+  });
+  body.querySelectorAll('[data-savebtq]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const phone=btn.dataset.savebtq;
+      const isBoutique=document.querySelector(`[data-boutiquetoggle="${phone}"]`).checked;
+      const boutiqueName=document.querySelector(`[data-boutiquename="${phone}"]`).value.trim();
+      const boutiqueLogo=document.querySelector(`[data-boutiquelogo="${phone}"]`).value.trim();
+      try{
+        await apiFetch(`/api/owners/${encodeURIComponent(phone)}`, { method:'PUT', admin:true, body:{isBoutique, boutiqueName, boutiqueLogo} });
+        await refreshData(false); toast('پروفایل مزون ذخیره شد'); renderAdminLicenses(body);
+      }catch(e){ if(!handleAuthError(e)) toast('خطا: '+e.message); }
+    });
+  });
+  body.querySelectorAll('[data-showqr]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const phone=btn.dataset.showqr;
+      const box=document.getElementById('qr-'+phone.replace(/[^\w]/g,'_'));
+      if(box.style.display==='block'){ box.style.display='none'; return; }
+      const siteUrl=location.origin+location.pathname;
+      const target=siteUrl+'#/boutique/'+encodeURIComponent(phone);
+      const qrImg=`https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(target)}`;
+      box.innerHTML=`
+        <img src="${qrImg}" style="width:180px;height:180px;border-radius:12px;box-shadow:var(--shadow);">
+        <p style="font-size:11px;color:var(--ink-soft);word-break:break-all;margin:8px 0;">${esc(target)}</p>
+        <a class="btn small outline" href="${qrImg}" download="qr-${phone}.png" target="_blank">دانلود عکس QR</a>
+      `;
+      box.style.display='block';
     });
   });
 }
